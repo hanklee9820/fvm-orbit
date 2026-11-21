@@ -136,6 +136,19 @@ body,
   animation: pulseDot 1.6s ease-in-out infinite;
 }
 
+@keyframes softFadeIn {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-soft-fade {
+  animation: softFadeIn 220ms ease-out;
+}
+
 @keyframes dashFlow {
   to {
     stroke-dashoffset: -24;

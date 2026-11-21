@@ -124,11 +124,14 @@ interface FvmStoreState {
   appIconStyle: AppIconStyle;
   loading: boolean;
   loadingReleases: boolean;
+  loadingDoctor: boolean;
   error: string | null;
 
   snapshot: WorkspaceSnapshot | null;
   releases: ReleasesResponse | null;
   doctorReport: DoctorOutput | null;
+  doctorUpdatedAt: string | null;
+  doctorRunSeq: number;
   extraProjects: string[];
 
   selectedProjectId: string | null;
@@ -180,7 +183,7 @@ interface FvmStoreState {
   bootstrap: () => Promise<void>;
   refreshAll: (silent?: boolean) => Promise<void>;
   refreshReleases: (channel?: string) => Promise<void>;
-  refreshDoctor: (cwd?: string) => Promise<void>;
+  refreshDoctor: (cwd?: string, manual?: boolean) => Promise<void>;
 
   runFvmArgs: (args: string[], cwd?: string, successToast?: string) => Promise<number>;
   cancelRequest: (requestId: string) => Promise<void>;
@@ -218,11 +221,14 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
   appIconStyle: loadAppIconStyle(),
   loading: false,
   loadingReleases: false,
+  loadingDoctor: false,
   error: null,
 
   snapshot: null,
   releases: null,
   doctorReport: null,
+  doctorUpdatedAt: null,
+  doctorRunSeq: 0,
   extraProjects: loadExtraProjects(),
 
   selectedProjectId: null,
@@ -406,12 +412,26 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     }
   },
 
-  refreshDoctor: async (cwd) => {
-    if (!isTauriRuntime()) return;
+  refreshDoctor: async (cwd, manual = false) => {
+    if (!isTauriRuntime() || get().loadingDoctor) return;
+    set({ loadingDoctor: true });
+    const minDelay = manual
+      ? new Promise<void>((resolve) => setTimeout(resolve, 350))
+      : Promise.resolve();
     try {
-      const res = await fetchDoctorReport(cwd);
-      set({ doctorReport: res });
+      const [res] = await Promise.all([fetchDoctorReport(cwd), minDelay]);
+      set((s) => ({
+        doctorReport: res,
+        loadingDoctor: false,
+        doctorUpdatedAt: nowTime(),
+        doctorRunSeq: s.doctorRunSeq + 1,
+      }));
+      if (manual) {
+        get().pushToast("fvm doctor 诊断已刷新", "success");
+      }
     } catch (err) {
+      await minDelay;
+      set({ loadingDoctor: false });
       get().pushToast(`fvm doctor 执行失败: ${String(err)}`, "error");
     }
   },

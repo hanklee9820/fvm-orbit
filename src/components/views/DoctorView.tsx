@@ -38,6 +38,9 @@ export function DoctorView() {
   const {
     snapshot,
     doctorReport,
+    loadingDoctor,
+    doctorUpdatedAt,
+    doctorRunSeq,
     selectedProjectId,
     refreshDoctor,
     fixPathInZshrc,
@@ -235,22 +238,41 @@ export function DoctorView() {
 
       {/* Live Raw `fvm doctor` Output */}
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-[var(--primary)]" />
+        <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal className="w-4 h-4 text-[var(--primary)] shrink-0" />
             <span className="text-sm font-semibold">实时 fvm doctor 诊断原文</span>
+            {loadingDoctor ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--warning)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)] pulse-dot" />
+                <span>运行中…</span>
+              </span>
+            ) : doctorUpdatedAt ? (
+              <span className="text-xs font-mono text-[var(--muted-foreground)] tabular-nums">
+                更新于 {doctorUpdatedAt}
+              </span>
+            ) : null}
           </div>
           <button
             type="button"
-            onClick={() => void refreshDoctor(activeProj?.path)}
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs cursor-pointer"
+            disabled={loadingDoctor}
+            onClick={() => void refreshDoctor(activeProj?.path, true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 disabled:opacity-65 disabled:cursor-wait text-xs transition cursor-pointer shrink-0"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>重新运行 fvm doctor</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingDoctor ? "animate-spin" : ""}`} />
+            <span>{loadingDoctor ? "正在运行…" : "重新运行 fvm doctor"}</span>
           </button>
         </div>
-        <pre className="p-4 m-0 max-h-64 overflow-auto scroll-thin bg-[var(--background)] font-mono text-xs text-[var(--code-foreground)] leading-snug whitespace-pre select-text">
-          {doctorReport?.rawOutput ? stripAnsi(doctorReport.rawOutput) : "正在运行 fvm doctor…"}
+        <pre
+          className={`p-4 m-0 max-h-64 overflow-auto scroll-thin bg-[var(--background)] font-mono text-xs text-[var(--code-foreground)] leading-snug whitespace-pre select-text transition-opacity duration-150 ${
+            loadingDoctor ? "opacity-45" : "opacity-100"
+          }`}
+        >
+          <code key={doctorRunSeq} className="block font-mono animate-soft-fade">
+            {doctorReport?.rawOutput
+              ? stripAnsi(doctorReport.rawOutput)
+              : "正在运行 fvm doctor…"}
+          </code>
         </pre>
       </div>
 
