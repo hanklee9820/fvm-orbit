@@ -10,6 +10,10 @@ use tokio::process::Command as AsyncCommand;
 
 const PROXY_PREF_FILENAME: &str = "proxy_settings.json";
 const DEFAULT_BYPASS: &str = "localhost,127.0.0.1,::1,.local";
+#[cfg(windows)]
+const DEFAULT_TEST_URL: &str =
+    "https://storage.googleapis.com/flutter_infra_release/releases/releases_windows.json";
+#[cfg(not(windows))]
 const DEFAULT_TEST_URL: &str =
     "https://storage.googleapis.com/flutter_infra_release/releases/releases_macos.json";
 
@@ -239,6 +243,7 @@ fn build_custom_proxy_url(settings: &ProxySettings, include_auth: bool) -> Optio
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn parse_scutil_proxy_output(raw: &str) -> SystemProxyInfo {
     let mut info = SystemProxyInfo::default();
     let mut in_exceptions = false;
@@ -314,6 +319,107 @@ fn compute_effective_system_url(info: &SystemProxyInfo) -> Option<String> {
     None
 }
 
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+fn parse_host_port_pair(raw: &str) -> Option<(String, u16)> {
+    let mut s = raw.trim();
+    for prefix in ["http://", "https://", "socks5h://", "socks5://", "socks://"] {
+        if let Some(stripped) = s.strip_prefix(prefix) {
+            s = stripped;
+            break;
+        }
+    }
+    if let Some((h, _)) = s.split_once('/') {
+        s = h;
+    }
+    let (host, port_str) = s.rsplit_once(':')?;
+    let host = host.trim();
+    if host.is_empty() {
+        return None;
+    }
+    let port = port_str.trim().parse::<u16>().ok()?;
+    Some((host.to_string(), port))
+}
+
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+pub fn parse_windows_reg_proxy_output(raw: &str) -> SystemProxyInfo {
+    let mut info = SystemProxyInfo::default();
+    let mut proxy_enabled = false;
+    let mut proxy_server = String::new();
+    let mut proxy_override = String::new();
+
+    for line in raw.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("ProxyEnable") {
+            if let Some(val) = trimmed.split_whitespace().last() {
+                proxy_enabled = val == "0x1" || val == "1";
+            }
+        } else if trimmed.starts_with("ProxyServer") {
+            let parts: Vec<&str> = trimmed.splitn(3, char::is_whitespace).collect();
+            if let Some(last) = trimmed.split("REG_SZ").nth(1) {
+                proxy_server = last.trim().to_string();
+            } else if parts.len() == 3 {
+                proxy_server = parts[2].trim().to_string();
+            }
+        } else if trimmed.starts_with("ProxyOverride") {
+            if let Some(last) = trimmed.split("REG_SZ").nth(1) {
+                proxy_override = last.trim().to_string();
+            }
+        }
+    }
+
+    if !proxy_override.is_empty() {
+        info.exceptions = proxy_override
+            .split(';')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(String::from)
+            .collect();
+    }
+
+    if !proxy_enabled || proxy_server.is_empty() {
+        return info;
+    }
+
+    if proxy_server.contains('=') {
+        for segment in proxy_server.split(';') {
+            let Some((k, v)) = segment.split_once('=') else {
+                continue;
+            };
+            let Some((host, port)) = parse_host_port_pair(v) else {
+                continue;
+            };
+            match k.trim().to_ascii_lowercase().as_str() {
+                "http" => {
+                    info.http_enabled = true;
+                    info.http_host = Some(host);
+                    info.http_port = Some(port);
+                }
+                "https" => {
+                    info.https_enabled = true;
+                    info.https_host = Some(host);
+                    info.https_port = Some(port);
+                }
+                "socks" | "socks5" => {
+                    info.socks_enabled = true;
+                    info.socks_host = Some(host);
+                    info.socks_port = Some(port);
+                }
+                _ => {}
+            }
+        }
+    } else if let Some((host, port)) = parse_host_port_pair(&proxy_server) {
+        info.http_enabled = true;
+        info.http_host = Some(host.clone());
+        info.http_port = Some(port);
+        info.https_enabled = true;
+        info.https_host = Some(host);
+        info.https_port = Some(port);
+    }
+
+    info.effective_url = compute_effective_system_url(&info);
+    info
+}
+
 pub fn detect_system_proxy_sync() -> SystemProxyInfo {
     #[cfg(target_os = "macos")]
     {
@@ -325,7 +431,28 @@ pub fn detect_system_proxy_sync() -> SystemProxyInfo {
         }
     }
 
-    // Fallback: inspect environment variables if scutil is unavailable
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        if let Ok(output) = StdCommand::new("reg.exe")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+            ])
+            .creation_flags(0x0800_0000)
+            .output()
+        {
+            if output.status.success() {
+                let raw = String::from_utf8_lossy(&output.stdout);
+                let parsed = parse_windows_reg_proxy_output(&raw);
+                if parsed.effective_url.is_some() || !parsed.exceptions.is_empty() {
+                    return parsed;
+                }
+            }
+        }
+    }
+
+    // Fallback: inspect environment variables if scutil/registry is unavailable
     let mut info = SystemProxyInfo::default();
     if let Ok(url) = std::env::var("HTTPS_PROXY").or_else(|_| std::env::var("https_proxy")) {
         if !url.trim().is_empty() {
@@ -485,7 +612,14 @@ pub async fn test_proxy_connectivity(
     };
 
     let started = Instant::now();
-    let mut cmd = AsyncCommand::new("/usr/bin/curl");
+    #[cfg(windows)]
+    let (curl_bin, null_target) = ("curl.exe", "NUL");
+    #[cfg(not(windows))]
+    let (curl_bin, null_target) = ("/usr/bin/curl", "/dev/null");
+
+    let mut cmd = AsyncCommand::new(curl_bin);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000);
     if use_head {
         cmd.arg("-I");
     }
@@ -493,7 +627,7 @@ pub async fn test_proxy_connectivity(
         "-sS",
         "-L",
         "-o",
-        "/dev/null",
+        null_target,
         "--connect-timeout",
         "6",
         "--max-time",
@@ -674,6 +808,26 @@ mod tests {
         assert_eq!(
             build_custom_proxy_url(&cfg, false).as_deref(),
             Some("socks5h://127.0.0.1:10808")
+        );
+    }
+
+    #[test]
+    fn parses_windows_registry_proxy_output() {
+        let sample = r#"
+HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet Settings
+    ProxyEnable    REG_DWORD    0x1
+    ProxyServer    REG_SZ    127.0.0.1:7890
+    ProxyOverride    REG_SZ    localhost;127.*;10.*;<local>
+"#;
+        let parsed = parse_windows_reg_proxy_output(sample);
+        assert!(parsed.http_enabled);
+        assert!(parsed.https_enabled);
+        assert_eq!(parsed.http_host.as_deref(), Some("127.0.0.1"));
+        assert_eq!(parsed.http_port, Some(7890));
+        assert_eq!(parsed.effective_url.as_deref(), Some("http://127.0.0.1:7890"));
+        assert_eq!(
+            parsed.exceptions,
+            vec!["localhost", "127.*", "10.*", "<local>"]
         );
     }
 }

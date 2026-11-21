@@ -23,10 +23,23 @@ export function TitleBar() {
   } = useFvmStore();
 
   const fvmVer = snapshot?.context.fvmVersion ?? "4.3.2";
-  const archLabel =
+  const osRaw = (snapshot?.context.osLabel ?? "").toLowerCase();
+  const isMac =
+    osRaw === "macos" ||
+    (!osRaw && typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent));
+  const osDisplay =
+    osRaw === "windows"
+      ? "Windows"
+      : osRaw === "linux"
+        ? "Linux"
+        : isMac
+          ? "macOS"
+          : (snapshot?.context.osLabel ?? "macOS");
+  const archDisplay =
     snapshot?.context.archLabel === "aarch64"
-      ? "macOS arm64"
-      : `${snapshot?.context.osLabel ?? "macOS"} ${snapshot?.context.archLabel ?? ""}`.trim();
+      ? "arm64"
+      : (snapshot?.context.archLabel ?? "");
+  const archLabel = `${osDisplay} ${archDisplay}`.trim();
   const inTauri = isTauriRuntime();
   const proxySummary = getProxyDisplaySummary(proxySettings, systemProxyInfo, locale);
   const proxyDotClass =
@@ -59,7 +72,7 @@ export function TitleBar() {
       {/* Left: leave breathing room for native macOS Overlay traffic lights */}
       <div
         data-tauri-drag-region
-        className={`flex items-center gap-2 min-w-0 ${inTauri ? "pl-16" : ""}`}
+        className={`flex items-center gap-2 min-w-0 ${inTauri && isMac ? "pl-16" : ""}`}
       >
         <BrandLogo className="w-6 h-6 shrink-0" />
 
@@ -85,7 +98,7 @@ export function TitleBar() {
           <span className="truncate">{t("titleBar.searchPlaceholder")}</span>
         </span>
         <kbd className="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs shrink-0">
-          ⌘K
+          {isMac ? "⌘K" : "Ctrl+K"}
         </kbd>
       </button>
 

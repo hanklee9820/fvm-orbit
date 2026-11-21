@@ -98,7 +98,21 @@ fn detect_system_preferred_language() -> Option<String> {
     langs.firstObject().map(|s| s.to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+fn detect_system_preferred_language() -> Option<String> {
+    extern "system" {
+        fn GetUserDefaultUILanguage() -> u16;
+    }
+    let lang_id = unsafe { GetUserDefaultUILanguage() };
+    // Primary language ID 0x04 is LANG_CHINESE
+    if (lang_id & 0x3ff) == 0x04 {
+        Some("zh-CN".to_string())
+    } else {
+        Some("en-US".to_string())
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn detect_system_preferred_language() -> Option<String> {
     None
 }

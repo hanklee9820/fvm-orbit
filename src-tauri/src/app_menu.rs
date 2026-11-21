@@ -2,9 +2,12 @@ use crate::i18n::{current_locale, AppLocale};
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub const MENU_ID_SETTINGS: &str = "app_menu_settings";
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub const MENU_ID_REFRESH: &str = "app_menu_refresh";
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 struct MenuStrings {
     about: &'static str,
     about_comments: &'static str,
@@ -88,6 +91,7 @@ impl MenuStrings {
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn focus_main_window(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.unminimize();
@@ -96,6 +100,7 @@ pub fn focus_main_window(app: &AppHandle) {
     }
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let s = MenuStrings::for_locale(current_locale());
 
@@ -195,22 +200,36 @@ pub fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 }
 
 pub fn refresh_app_menu(app: &AppHandle) -> tauri::Result<()> {
-    let menu = build_app_menu(app)?;
-    app.set_menu(menu)?;
+    #[cfg(target_os = "macos")]
+    {
+        let menu = build_app_menu(app)?;
+        app.set_menu(menu)?;
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+    }
     Ok(())
 }
 
 pub fn init_app_menu(app: &AppHandle) -> tauri::Result<()> {
-    refresh_app_menu(app)?;
-    app.on_menu_event(|app, event| {
-        let id = event.id().as_ref();
-        if id == MENU_ID_SETTINGS {
-            focus_main_window(app);
-            let _ = app.emit("fvm://open-settings", ());
-        } else if id == MENU_ID_REFRESH {
-            let _ = app.emit("fvm://refresh", ());
-        }
-    });
+    #[cfg(target_os = "macos")]
+    {
+        refresh_app_menu(app)?;
+        app.on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            if id == MENU_ID_SETTINGS {
+                focus_main_window(app);
+                let _ = app.emit("fvm://open-settings", ());
+            } else if id == MENU_ID_REFRESH {
+                let _ = app.emit("fvm://refresh", ());
+            }
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+    }
     Ok(())
 }
 

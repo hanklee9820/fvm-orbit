@@ -1112,3 +1112,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     }
   },
 }));
+
+if (typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).__FVM_STORE__ = useFvmStore;
+}

@@ -159,12 +159,17 @@ pub fn build_tray_menu(
 }
 
 pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
-    let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    #[cfg(target_os = "macos")]
+    let icon_bytes: &[u8] = include_bytes!("../icons/tray.png");
+    #[cfg(not(target_os = "macos"))]
+    let icon_bytes: &[u8] = include_bytes!("../icons/32x32.png");
+
+    let icon = Image::from_bytes(icon_bytes)?;
     let menu = build_tray_menu(app, None, &[], "0 B")?;
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
-        .icon_as_template(true)
+        .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("FVM Orbit — Flutter Version Management")
         .menu(&menu)
         .show_menu_on_left_click(true)

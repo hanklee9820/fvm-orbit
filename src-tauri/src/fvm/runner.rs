@@ -45,6 +45,8 @@ impl CancelRegistry {
 
 fn build_fvm_cmd(args: &[String], cwd: Option<&str>) -> Command {
     let mut cmd = Command::new(resolve_fvm_binary());
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000);
     cmd.args(args)
         .env("PATH", resolved_path_env())
         .env("NO_COLOR", "1")
@@ -257,12 +259,17 @@ fn dir_size_bytes(path: &Path) -> u64 {
 }
 
 fn resolve_global_version(global_link: &str) -> Option<String> {
+    if global_link.trim().is_empty() {
+        return None;
+    }
     let link_path = Path::new(global_link);
-    let target = std::fs::read_link(link_path).ok()?;
+    let target = std::fs::read_link(link_path)
+        .or_else(|_| std::fs::canonicalize(link_path))
+        .ok()?;
     target
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() && s != "default")
 }
 
 fn parse_release_item(v: &Value) -> ReleaseItem {
@@ -342,7 +349,7 @@ fn inspect_project_fs(path_str: &str, raw_project: &Value) -> ProjectInfo {
     let vscode_settings = std::fs::read_to_string(dir.join(".vscode/settings.json")).ok();
     let vscode_synced = vscode_settings
         .as_deref()
-        .map(|s| s.contains(".fvm/flutter_sdk"))
+        .map(|s| s.contains(".fvm/flutter_sdk") || s.contains(r".fvm\flutter_sdk"))
         .unwrap_or(false);
 
     let idea_dir = dir.join(".idea");
@@ -353,11 +360,11 @@ fn inspect_project_fs(path_str: &str, raw_project: &Value) -> ProjectInfo {
         let local_props = std::fs::read_to_string(dir.join("android/local.properties")).ok();
         dart_lib
             .as_deref()
-            .map(|s| s.contains(".fvm/flutter_sdk"))
+            .map(|s| s.contains(".fvm/flutter_sdk") || s.contains(r".fvm\flutter_sdk"))
             .unwrap_or(false)
             || local_props
                 .as_deref()
-                .map(|s| s.contains(".fvm/flutter_sdk"))
+                .map(|s| s.contains(".fvm/flutter_sdk") || s.contains(r".fvm\flutter_sdk"))
                 .unwrap_or(false)
     } else {
         false
