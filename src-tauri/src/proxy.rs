@@ -130,14 +130,25 @@ pub fn normalize_settings(mut settings: ProxySettings) -> Result<ProxySettings, 
 
     if settings.mode == "custom" {
         if settings.host.is_empty() {
-            return Err("请输入自定义代理主机地址（如 127.0.0.1）".to_string());
+            return Err(crate::i18n::pick(
+                "请输入自定义代理主机地址（如 127.0.0.1）",
+                "Please enter a custom proxy host (e.g. 127.0.0.1)",
+            )
+            .to_string());
         }
-        let port_num: u16 = settings
-            .port
-            .parse()
-            .map_err(|_| "请输入有效的代理端口号（1 - 65535）".to_string())?;
+        let port_num: u16 = settings.port.parse().map_err(|_| {
+            crate::i18n::pick(
+                "请输入有效的代理端口号（1 - 65535）",
+                "Please enter a valid proxy port (1 - 65535)",
+            )
+            .to_string()
+        })?;
         if port_num == 0 {
-            return Err("代理端口号不能为 0".to_string());
+            return Err(crate::i18n::pick(
+                "代理端口号不能为 0",
+                "Proxy port cannot be 0",
+            )
+            .to_string());
         }
         settings.port = port_num.to_string();
     }
@@ -168,9 +179,18 @@ pub fn update_proxy_settings(
         if let Some(parent) = path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let serialized = serde_json::to_string_pretty(&normalized)
-            .map_err(|e| format!("序列化代理配置失败: {e}"))?;
-        fs::write(&path, serialized).map_err(|e| format!("保存代理配置文件失败: {e}"))?;
+        let serialized = serde_json::to_string_pretty(&normalized).map_err(|e| {
+            format!(
+                "{}: {e}",
+                crate::i18n::pick("序列化代理配置失败", "Failed to serialize proxy settings")
+            )
+        })?;
+        fs::write(&path, serialized).map_err(|e| {
+            format!(
+                "{}: {e}",
+                crate::i18n::pick("保存代理配置文件失败", "Failed to write proxy settings file")
+            )
+        })?;
     }
     *proxy_store().write() = normalized.clone();
     Ok(normalized)
@@ -495,23 +515,42 @@ pub async fn test_proxy_connectivity(
 
     cmd.arg(&url);
 
-    let output = cmd
-        .output()
-        .await
-        .map_err(|e| format!("无法执行连通性检测 (curl): {e}"))?;
+    let output = cmd.output().await.map_err(|e| {
+        format!(
+            "{}: {e}",
+            crate::i18n::pick("无法执行连通性检测 (curl)", "Failed to run connectivity check (curl)")
+        )
+    })?;
     let latency_ms = started.elapsed().as_millis() as u64;
 
     let code_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let http_status = code_str.parse::<u16>().ok().filter(|&c| c > 0);
     let stderr_text = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let is_zh = crate::i18n::current_locale().is_zh();
 
     if output.status.success() && matches!(http_status, Some(200..=399)) {
         let mode_desc = match settings.mode.as_str() {
-            "direct" => format!("直连可达 · {latency_ms} ms"),
-            "system" if display_proxy.is_none() => {
-                format!("系统未开代理，已直连 · {latency_ms} ms")
+            "direct" => {
+                if is_zh {
+                    format!("直连可达 · {latency_ms} ms")
+                } else {
+                    format!("Direct reachable · {latency_ms} ms")
+                }
             }
-            _ => format!("代理连通正常 · {latency_ms} ms"),
+            "system" if display_proxy.is_none() => {
+                if is_zh {
+                    format!("系统未开代理，已直连 · {latency_ms} ms")
+                } else {
+                    format!("System proxy off, direct · {latency_ms} ms")
+                }
+            }
+            _ => {
+                if is_zh {
+                    format!("代理连通正常 · {latency_ms} ms")
+                } else {
+                    format!("Proxy reachable · {latency_ms} ms")
+                }
+            }
         };
         return Ok(ProxyTestResult {
             ok: true,
@@ -524,7 +563,11 @@ pub async fn test_proxy_connectivity(
     }
 
     let detail = if http_status == Some(407) {
-        "代理需要身份认证 (HTTP 407)".to_string()
+        crate::i18n::pick(
+            "代理需要身份认证 (HTTP 407)",
+            "Proxy requires authentication (HTTP 407)",
+        )
+        .to_string()
     } else if !stderr_text.is_empty() {
         stderr_text
             .lines()
@@ -532,9 +575,13 @@ pub async fn test_proxy_connectivity(
             .unwrap_or(&stderr_text)
             .to_string()
     } else if let Some(code) = http_status {
-        format!("目标返回 HTTP {code}")
+        if is_zh {
+            format!("目标返回 HTTP {code}")
+        } else {
+            format!("Target returned HTTP {code}")
+        }
     } else {
-        "连接超时或被拒绝".to_string()
+        crate::i18n::pick("连接超时或被拒绝", "Connection timed out or refused").to_string()
     };
 
     Ok(ProxyTestResult {
@@ -543,7 +590,11 @@ pub async fn test_proxy_connectivity(
         target_url: url,
         proxy_used: display_proxy,
         http_status,
-        message: format!("连通失败: {detail}"),
+        message: if is_zh {
+            format!("连通失败: {detail}")
+        } else {
+            format!("Connection failed: {detail}")
+        },
     })
 }
 

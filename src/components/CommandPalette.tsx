@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { useFvmStore } from "../store/useFvmStore";
 
 interface CmdItem {
@@ -10,6 +11,7 @@ interface CmdItem {
 }
 
 export function CommandPalette() {
+  const { t, setLanguage } = useI18n();
   const {
     cmdkOpen,
     setCmdkOpen,
@@ -42,32 +44,32 @@ export function CommandPalette() {
     const base: CmdItem[] = [
       {
         id: "nav-topology",
-        title: "前往：引力拓扑台 (Project ↔ SDK)",
-        sub: "可视化管理项目与 Flavor 绑定",
+        title: t("cmdk.navTopologyTitle"),
+        sub: t("cmdk.navTopologySub"),
         action: () => setActiveTab("topology"),
       },
       {
         id: "nav-releases",
-        title: "前往：版本宇宙 (Releases)",
-        sub: "浏览官方发布库并安装 SDK",
+        title: t("cmdk.navReleasesTitle"),
+        sub: t("cmdk.navReleasesSub"),
         action: () => setActiveTab("releases"),
       },
       {
         id: "nav-cleanup",
-        title: "前往：瘦身雷达 (fvm cleanup)",
-        sub: "同系补丁收拢与未引用缓存清理",
+        title: t("cmdk.navCleanupTitle"),
+        sub: t("cmdk.navCleanupSub"),
         action: () => setActiveTab("cleanup"),
       },
       {
         id: "nav-spawn",
-        title: "前往：Spawn 并发测试舱 (fvm spawn)",
-        sub: "跨版本并行运行 flutter test / analyze",
+        title: t("cmdk.navSpawnTitle"),
+        sub: t("cmdk.navSpawnSub"),
         action: () => setActiveTab("spawn"),
       },
       {
         id: "nav-doctor",
-        title: "前往：环境体检 & IDE/MCP (fvm doctor)",
-        sub: "检查 PATH、VS Code、Android Studio、Dart MCP",
+        title: t("cmdk.navDoctorTitle"),
+        sub: t("cmdk.navDoctorSub"),
         action: () => {
           setActiveTab("doctor");
           void refreshDoctor();
@@ -75,57 +77,81 @@ export function CommandPalette() {
       },
       {
         id: "nav-config",
-        title: "前往：Forks & 全局配置 (fvm config)",
-        sub: "自定义 Flutter Fork 别名与镜像源设置",
+        title: t("cmdk.navConfigTitle"),
+        sub: t("cmdk.navConfigSub"),
         action: () => setActiveTab("config"),
       },
       {
         id: "act-refresh",
-        title: "刷新：重新同步本地 FVM 缓存与项目",
-        sub: "fvm api context & list & cleanup",
+        title: t("cmdk.actRefreshTitle"),
+        sub: t("cmdk.actRefreshSub"),
         action: () => void refreshAll(),
       },
       {
         id: "open-settings-proxy",
-        title: "设置：打开网络代理设置 (⌘,)",
-        sub: "配置下载 Flutter SDK 时直连 / 系统代理 / 自定义代理",
+        title: t("cmdk.openProxyTitle"),
+        sub: t("cmdk.openProxySub"),
         action: () => openSettings("proxy"),
       },
       {
         id: "open-settings-icon",
-        title: "设置：打开桌面应用图标设置",
-        sub: "切换黑底曜石 / 白底瓷光 / 自动 App Logo",
+        title: t("cmdk.openIconTitle"),
+        sub: t("cmdk.openIconSub"),
         action: () => openSettings("appearance"),
       },
       {
+        id: "open-settings-lang",
+        title: t("cmdk.openLangTitle"),
+        sub: t("cmdk.openLangSub"),
+        action: () => openSettings("language"),
+      },
+      {
         id: "proxy-direct",
-        title: "代理：切换为直连（下载不走代理）",
-        sub: "清除代理环境变量并设置 NO_PROXY=*，适合国内镜像",
+        title: t("cmdk.proxyDirectTitle"),
+        sub: t("cmdk.proxyDirectSub"),
         action: () => void updateProxySettings({ ...proxySettings, mode: "direct" }),
       },
       {
         id: "proxy-system",
-        title: "代理：切换为跟随 macOS 系统代理",
-        sub: "自动读取 macOS 系统网络代理端口",
+        title: t("cmdk.proxySystemTitle"),
+        sub: t("cmdk.proxySystemSub"),
         action: () => void updateProxySettings({ ...proxySettings, mode: "system" }),
       },
       {
         id: "icon-light",
-        title: "外观：切换为白底瓷光 App Logo",
-        sub: "实时更新 macOS Dock 图标为白色背景版本",
+        title: t("cmdk.iconLightTitle"),
+        sub: t("cmdk.iconLightSub"),
         action: () => void setAppIconStyle("light"),
       },
       {
         id: "icon-dark",
-        title: "外观：切换为黑底曜石 App Logo",
-        sub: "实时更新 macOS Dock 图标为黑色背景版本",
+        title: t("cmdk.iconDarkTitle"),
+        sub: t("cmdk.iconDarkSub"),
         action: () => void setAppIconStyle("dark"),
       },
       {
         id: "icon-auto",
-        title: "外观：App Logo 跟随浅色 / 深色主题自动切换",
-        sub: "随系统与应用外观自动切换白底 / 黑底图标",
+        title: t("cmdk.iconAutoTitle"),
+        sub: t("cmdk.iconAutoSub"),
         action: () => void setAppIconStyle("auto"),
+      },
+      {
+        id: "lang-zh",
+        title: t("cmdk.langZhTitle"),
+        sub: t("cmdk.langZhSub"),
+        action: () => void setLanguage("zh"),
+      },
+      {
+        id: "lang-en",
+        title: t("cmdk.langEnTitle"),
+        sub: t("cmdk.langEnSub"),
+        action: () => void setLanguage("en"),
+      },
+      {
+        id: "lang-system",
+        title: t("cmdk.langSystemTitle"),
+        sub: t("cmdk.langSystemSub"),
+        action: () => void setLanguage("system"),
       },
     ];
 
@@ -133,7 +159,7 @@ export function CommandPalette() {
     if (latestStable) {
       base.push({
         id: `install-${latestStable}`,
-        title: `安装：最新稳定版 Flutter ${latestStable}`,
+        title: t("cmdk.installLatestTitle", { version: latestStable }),
         sub: `fvm install ${latestStable}`,
         action: () => void installSdk(latestStable),
       });
@@ -142,8 +168,8 @@ export function CommandPalette() {
     (snapshot?.projects ?? []).forEach((p) => {
       base.push({
         id: `proj-${p.id}`,
-        title: `聚焦项目：${p.name}`,
-        sub: `${p.path} (${p.pinnedVersion ?? "未绑定"})`,
+        title: t("cmdk.focusProjectTitle", { name: p.name }),
+        sub: `${p.path} (${p.pinnedVersion ?? t("common.unbound")})`,
         action: () => {
           selectProject(p.id);
           setActiveTab("topology");
@@ -159,6 +185,7 @@ export function CommandPalette() {
         i.sub.toLowerCase().includes(term)
     );
   }, [
+    t,
     query,
     snapshot,
     releases,
@@ -168,6 +195,7 @@ export function CommandPalette() {
     refreshAll,
     refreshDoctor,
     setAppIconStyle,
+    setLanguage,
     openSettings,
     proxySettings,
     updateProxySettings,
@@ -213,7 +241,7 @@ export function CommandPalette() {
                 setCmdkOpen(false);
               }
             }}
-            placeholder="输入版本号、项目名或指令（cleanup / doctor / spawn）…"
+            placeholder={t("cmdk.placeholder")}
             className="flex-1 bg-transparent text-sm text-[var(--foreground)] placeholder:text-[var(--placeholder)] outline-none"
           />
           <kbd className="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs">
@@ -224,7 +252,7 @@ export function CommandPalette() {
         <div className="max-h-80 overflow-y-auto scroll-thin p-2 space-y-1">
           {items.length === 0 ? (
             <div className="p-4 text-center text-xs text-[var(--muted-foreground)]">
-              未找到匹配指令
+              {t("cmdk.empty")}
             </div>
           ) : (
             items.map((item, idx) => (

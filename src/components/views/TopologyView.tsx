@@ -1,5 +1,6 @@
 import { Copy, FolderPlus, Play, Plus, Trash2 } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "../../i18n/useI18n";
 import { formatBytes, useFvmStore } from "../../store/useFvmStore";
 import type { ProjectInfo } from "../../types/fvm";
 import { BrandLogo } from "../BrandLogo";
@@ -26,6 +27,7 @@ interface CableLine {
 }
 
 export function TopologyView() {
+  const { t } = useI18n();
   const {
     snapshot,
     releases,
@@ -227,7 +229,7 @@ export function TopologyView() {
     selectProject(selectedProject.id, clean);
     setAddingFlavor(false);
     setNewFlavorName("");
-    pushToast(`已创建 Flavor 槽位 "${clean}"，请在右侧点选 SDK 后点击执行切换`, "info");
+    pushToast(t("topology.flavorCreatedToast", { name: clean }), "info");
   };
 
   return (
@@ -235,7 +237,7 @@ export function TopologyView() {
       {/* KPI Strip */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <div className="p-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-1">
-          <div className="text-xs text-[var(--muted-foreground)]">已缓存 SDK</div>
+          <div className="text-xs text-[var(--muted-foreground)]">{t("topology.kpiCachedSdk")}</div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xl font-bold tabular-nums">{versions.length}</span>
             <span className="text-xs font-mono text-[var(--primary)]">
@@ -247,37 +249,50 @@ export function TopologyView() {
         </div>
 
         <div className="p-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-1">
-          <div className="text-xs text-[var(--muted-foreground)]">追踪项目 / Flavors</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            {t("topology.kpiProjectsFlavors")}
+          </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xl font-bold tabular-nums">{projects.length}</span>
-            <span className="text-xs text-[var(--muted-foreground)]">{totalFlavors} 个 Flavor</span>
+            <span className="text-xs text-[var(--muted-foreground)]">
+              {t("topology.kpiFlavorCount", { count: totalFlavors })}
+            </span>
           </div>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-1">
-          <div className="text-xs text-[var(--muted-foreground)]">全局默认版本</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            {t("topology.kpiGlobalDefault")}
+          </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-base font-bold font-mono truncate">
-              {snapshot.context.globalVersion ?? "未配置"}
+              {snapshot.context.globalVersion ?? t("common.notSet")}
             </span>
             <span
               className={`text-xs shrink-0 ${
                 snapshot.context.pathPriorityOk ? "text-[var(--success)]" : "text-[var(--warning)]"
               }`}
             >
-              {snapshot.context.pathPriorityOk ? "PATH 正常" : "PATH 冲突"}
+              {snapshot.context.pathPriorityOk
+                ? t("topology.kpiPathOk")
+                : t("topology.kpiPathConflict")}
             </span>
           </div>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-1">
-          <div className="text-xs text-[var(--muted-foreground)]">可优化缓存空间</div>
+          <div className="text-xs text-[var(--muted-foreground)]">
+            {t("topology.kpiReclaimable")}
+          </div>
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xl font-bold tabular-nums text-[var(--warning)]">
               {formatBytes(removableBytes)}
             </span>
             <span className="text-xs text-[var(--muted-foreground)]">
-              {cleanup.upgrades.length} 升级 · {cleanup.removable.length} 可删
+              {t("topology.kpiCleanupSummary", {
+                upgrades: cleanup.upgrades.length,
+                removable: cleanup.removable.length,
+              })}
             </span>
           </div>
         </div>
@@ -291,11 +306,16 @@ export function TopologyView() {
           </div>
           <div className="space-y-1.5 max-w-lg mx-auto">
             <h2 className="text-base font-semibold">
-              本机 FVM {snapshot.context.fvmVersion} 缓存当前为空（0 B）
+              {t("topology.emptyTitle", { version: snapshot.context.fvmVersion })}
             </h2>
             <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-              已直连 <code className="font-mono text-[var(--code-foreground)]">{snapshot.context.versionsCachePath}</code>。你可以一键安装今日最新稳定版{" "}
-              <strong className="font-mono">Flutter {latestStable}</strong>，或直接选择已有 Flutter 项目目录开始管理。
+              {t("topology.emptyDescBeforePath")}{" "}
+              <code className="font-mono text-[var(--code-foreground)]">
+                {snapshot.context.versionsCachePath}
+              </code>
+              {t("topology.emptyDescBetweenPathAndVer")}{" "}
+              <strong className="font-mono">Flutter {latestStable}</strong>
+              {t("topology.emptyDescAfterVer")}
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
@@ -304,7 +324,7 @@ export function TopologyView() {
               onClick={() => void installSdk(latestStable, { setGlobal: true })}
               className="px-4 py-2 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90 transition"
             >
-              一键安装 Flutter {latestStable} 并设为全局
+              {t("topology.emptyInstallBtn", { version: latestStable })}
             </button>
             <button
               type="button"
@@ -312,7 +332,7 @@ export function TopologyView() {
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs font-medium cursor-pointer hover:opacity-90 transition"
             >
               <FolderPlus className="w-3.5 h-3.5" />
-              <span>选择本地 Flutter 项目目录</span>
+              <span>{t("topology.emptyPickDirBtn")}</span>
             </button>
           </div>
         </div>
@@ -321,10 +341,11 @@ export function TopologyView() {
         <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
           <div className="px-4 py-3 border-b border-[var(--border)] flex flex-wrap items-center justify-between gap-2 bg-[var(--sidebar)]">
             <div>
-              <h2 className="text-sm font-semibold">项目 ↔ SDK 引力拓扑图</h2>
+              <h2 className="text-sm font-semibold">{t("topology.matrixTitle")}</h2>
               <p className="text-xs text-[var(--muted-foreground)]">
-                左侧点选项目或 Flavor，右侧点选任意已缓存 SDK 即可实时重连并预览{" "}
+                {t("topology.matrixSubBeforeCode")}{" "}
                 <code className="font-mono">.fvmrc</code>
+                {t("topology.matrixSubAfterCode")}
               </p>
             </div>
             <button
@@ -333,7 +354,7 @@ export function TopologyView() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs font-medium hover:opacity-90 transition cursor-pointer"
             >
               <FolderPlus className="w-3.5 h-3.5" />
-              <span>绑定本地项目目录</span>
+              <span>{t("topology.bindProjectBtn")}</span>
             </button>
           </div>
 
@@ -344,19 +365,19 @@ export function TopologyView() {
             {/* Left: Tracked Projects */}
             <div className="lg:col-span-5 space-y-2.5">
               <div className="text-xs font-semibold text-[var(--muted-foreground)] px-1 flex items-center justify-between">
-                <span>已追踪项目 ({projects.length})</span>
+                <span>{t("topology.trackedProjectsHeading", { count: projects.length })}</span>
                 <span className="font-mono">projects.json</span>
               </div>
 
               {projects.length === 0 ? (
                 <div className="p-5 rounded-xl bg-[var(--background)] border border-dashed border-[var(--border)] text-center text-xs text-[var(--muted-foreground)] space-y-2">
-                  <div>尚未记录 FVM 项目</div>
+                  <div>{t("topology.noProjectsYet")}</div>
                   <button
                     type="button"
                     onClick={() => void bindProjectDialog()}
                     className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-medium cursor-pointer"
                   >
-                    选择本地项目目录
+                    {t("topology.selectProjectDirBtn")}
                   </button>
                 </div>
               ) : (
@@ -393,12 +414,12 @@ export function TopologyView() {
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="px-2 py-0.5 rounded-md text-xs font-mono bg-[var(--secondary)] text-[var(--secondary-foreground)]">
-                            {p.pinnedVersion ?? "未绑定"}
+                            {p.pinnedVersion ?? t("common.unbound")}
                           </span>
                           {isManual && (
                             <button
                               type="button"
-                              title="从列表移除"
+                              title={t("topology.removeFromListTooltip")}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void removeExtraProject(p.path);
@@ -465,7 +486,9 @@ export function TopologyView() {
 
                         {hasUpgrade && p.pinnedVersion && (
                           <span className="px-2 py-0.5 rounded-md text-xs bg-[var(--warning)]/15 text-[var(--warning)]">
-                            可升级 → {upgradeFromMap[p.pinnedVersion]}
+                            {t("topology.upgradableBadge", {
+                              version: upgradeFromMap[p.pinnedVersion],
+                            })}
                           </span>
                         )}
                       </div>
@@ -482,7 +505,7 @@ export function TopologyView() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") handleAddFlavor();
                             }}
-                            placeholder="输入 Flavor 名（如 staging）"
+                            placeholder={t("topology.flavorPlaceholder")}
                             className="flex-1 px-2.5 py-1 rounded-md bg-[var(--background)] border border-[var(--border)] text-xs font-mono outline-none focus:border-[var(--primary)]"
                           />
                           <button
@@ -490,7 +513,7 @@ export function TopologyView() {
                             onClick={handleAddFlavor}
                             className="px-2.5 py-1 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-medium cursor-pointer"
                           >
-                            确定
+                            {t("common.confirm")}
                           </button>
                         </div>
                       )}
@@ -526,7 +549,7 @@ export function TopologyView() {
             {/* Right: Cached SDK Nodes */}
             <div className="lg:col-span-5 space-y-2.5">
               <div className="text-xs font-semibold text-[var(--muted-foreground)] px-1 flex items-center justify-between">
-                <span>本地已缓存 SDK ({versions.length})</span>
+                <span>{t("topology.cachedSdksHeading", { count: versions.length })}</span>
                 <span className="font-mono truncate max-w-[180px]">
                   {snapshot.context.versionsCachePath}
                 </span>
@@ -534,13 +557,13 @@ export function TopologyView() {
 
               {versions.length === 0 ? (
                 <div className="p-5 rounded-xl bg-[var(--background)] border border-dashed border-[var(--border)] text-center text-xs text-[var(--muted-foreground)] space-y-2">
-                  <div>暂无已缓存 SDK</div>
+                  <div>{t("topology.noCachedSdks")}</div>
                   <button
                     type="button"
                     onClick={() => void installSdk(latestStable, { setGlobal: true })}
                     className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-medium cursor-pointer"
                   >
-                    安装 {latestStable}
+                    {t("topology.installVersionBtn", { version: latestStable })}
                   </button>
                 </div>
               ) : (
@@ -588,7 +611,7 @@ export function TopologyView() {
                           <span>·</span>
                           <span className="tabular-nums">{formatBytes(sdk.sizeBytes)}</span>
                           <span>·</span>
-                          <span>{refCount} 项目引用</span>
+                          <span>{t("topology.projectRefs", { count: refCount })}</span>
                         </div>
                       </div>
 
@@ -601,7 +624,11 @@ export function TopologyView() {
                               : "text-[var(--muted-foreground)]"
                         }`}
                       >
-                        {isPending ? "待绑定" : isBoundToSel ? "当前绑定" : "点击绑定"}
+                        {isPending
+                          ? t("topology.statePending")
+                          : isBoundToSel
+                            ? t("topology.stateBound")
+                            : t("topology.stateBindAction")}
                       </div>
                     </div>
                   );
@@ -615,21 +642,21 @@ export function TopologyView() {
             <div className="px-4 py-3.5 border-t border-[var(--border)] bg-[var(--sidebar)] grid grid-cols-1 xl:grid-cols-12 gap-4 items-center">
               <div className="xl:col-span-7 space-y-2.5">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-semibold">快捷切换操作台：</span>
+                  <span className="font-semibold">{t("topology.quickBindLabel")}</span>
                   <span className="font-mono px-2 py-0.5 rounded bg-[var(--card)] border border-[var(--border)]">
                     {selectedProject.name}
                     {selectedFlavor !== "__default__" ? ` [${selectedFlavor}]` : ""}
                   </span>
                   <span className="text-[var(--muted-foreground)]">→</span>
                   <span className="font-mono px-2 py-0.5 rounded bg-[var(--primary)]/15 text-[var(--primary)] font-semibold">
-                    {targetSdk ?? "请选择右侧 SDK"}
+                    {targetSdk ?? t("topology.selectSdkPrompt")}
                   </span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted-foreground)]">
                   {(
                     [
-                      ["pin", "--pin (锁定版本)"],
+                      ["pin", t("topology.flagPinLabel")],
                       ["skipPubGet", "--skip-pub-get"],
                       ["skipSetup", "--skip-setup"],
                       ["force", "--force"],
@@ -658,19 +685,19 @@ export function TopologyView() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                   >
                     <Play className="w-3.5 h-3.5" />
-                    <span>立即执行切换</span>
+                    <span>{t("topology.applyBindBtn")}</span>
                   </button>
                   <button
                     type="button"
                     disabled={!previewCmd}
                     onClick={() => {
                       void navigator.clipboard?.writeText(previewCmd);
-                      pushToast(`已复制: ${previewCmd}`, "success");
+                      pushToast(t("common.copied", { text: previewCmd }), "success");
                     }}
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     <Copy className="w-3.5 h-3.5" />
-                    <span>复制</span>
+                    <span>{t("common.copy")}</span>
                   </button>
                 </div>
               </div>
@@ -678,8 +705,8 @@ export function TopologyView() {
               <div className="xl:col-span-5">
                 <div className="rounded-xl bg-[var(--background)] border border-[var(--border)] p-3 font-mono text-xs overflow-x-auto">
                   <div className="flex items-center justify-between text-[var(--muted-foreground)] pb-1.5 mb-1.5 border-b border-[var(--border)]">
-                    <span>{selectedProject.name}/.fvmrc 预览</span>
-                    <span className="text-[var(--success)]">实时同步</span>
+                    <span>{t("topology.fvmrcPreviewTitle", { name: selectedProject.name })}</span>
+                    <span className="text-[var(--success)]">{t("common.liveSync")}</span>
                   </div>
                   <pre className="m-0 leading-relaxed text-[var(--code-foreground)] select-text">
                     {fvmrcPreview}

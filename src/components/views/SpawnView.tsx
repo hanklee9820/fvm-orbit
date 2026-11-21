@@ -1,9 +1,11 @@
 import { Play, Square } from "lucide-react";
+import { useI18n } from "../../i18n/useI18n";
 import { useFvmStore } from "../../store/useFvmStore";
 
 const PRESETS = ["test", "analyze", "doctor -v", "pub outdated", "build apk --debug"];
 
 export function SpawnView() {
+  const { t } = useI18n();
   const {
     snapshot,
     spawnMode,
@@ -33,17 +35,15 @@ export function SpawnView() {
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold">多版本并发测试舱 (Spawn & Flavor Matrix)</h2>
-            <p className="text-xs text-[var(--muted-foreground)]">
-              无需来回切换项目 SDK，一条指令同时跨多个 Flutter 版本并发拉起进程回归验证
-            </p>
+            <h2 className="text-sm font-semibold">{t("spawn.title")}</h2>
+            <p className="text-xs text-[var(--muted-foreground)]">{t("spawn.subtitle")}</p>
           </div>
           <div className="flex items-center p-0.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-xs">
             {(
               [
-                ["spawn", "fvm spawn (多版本)"],
-                ["flavor", "fvm flavor (多环境)"],
-                ["exec", "fvm exec (环境命令)"],
+                ["spawn", t("spawn.modeSpawn")],
+                ["flavor", t("spawn.modeFlavor")],
+                ["exec", t("spawn.modeExec")],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -66,7 +66,9 @@ export function SpawnView() {
           {/* Working Directory Picker */}
           {projects.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-[var(--muted-foreground)] font-medium">目标项目目录：</span>
+              <span className="text-[var(--muted-foreground)] font-medium">
+                {t("spawn.workingDirLabel")}
+              </span>
               <select
                 value={activeProject?.id ?? ""}
                 onChange={(e) => setSpawnProjectId(e.target.value)}
@@ -99,7 +101,9 @@ export function SpawnView() {
                   if (e.key === "Enter" && !spawnRunning) void runSpawnMatrix();
                 }}
                 placeholder={
-                  spawnMode === "exec" ? "例如 melos run analyze" : "例如 test / analyze / doctor"
+                  spawnMode === "exec"
+                    ? t("spawn.placeholderExec")
+                    : t("spawn.placeholderDefault")
                 }
                 className="flex-1 min-w-52 px-3 py-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] font-mono text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
               />
@@ -110,7 +114,7 @@ export function SpawnView() {
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[var(--error)] text-white text-xs font-semibold cursor-pointer"
                 >
                   <Square className="w-3 h-3 fill-current" />
-                  <span>中止矩阵</span>
+                  <span>{t("spawn.stopMatrix")}</span>
                 </button>
               ) : (
                 <button
@@ -119,13 +123,13 @@ export function SpawnView() {
                   className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90"
                 >
                   <Play className="w-3.5 h-3.5" />
-                  <span>启动并发矩阵</span>
+                  <span>{t("spawn.runMatrix")}</span>
                 </button>
               )}
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-[var(--muted-foreground)]">常用模板：</span>
+              <span className="text-[var(--muted-foreground)]">{t("spawn.presetsLabel")}</span>
               {PRESETS.map((pr) => (
                 <button
                   key={pr}
@@ -144,14 +148,12 @@ export function SpawnView() {
             <div className="space-y-2">
               <div className="text-xs font-semibold text-[var(--muted-foreground)]">
                 {spawnMode === "flavor"
-                  ? `选择项目 Flavor (${activeProject?.name ?? "--"})`
-                  : "选择并发目标 SDK 版本"}
+                  ? t("spawn.selectFlavorsHeading", { project: activeProject?.name ?? "--" })
+                  : t("spawn.selectSdksHeading")}
               </div>
               {availableTargets.length === 0 ? (
                 <div className="text-xs text-[var(--muted-foreground)]">
-                  {spawnMode === "flavor"
-                    ? "该项目尚未配置任何 Flavor，请前往引力拓扑台添加 Flavor。"
-                    : "当前暂无已缓存 SDK，请先前往「版本宇宙」安装至少一个版本。"}
+                  {spawnMode === "flavor" ? t("spawn.noFlavorsHint") : t("spawn.noSdksHint")}
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -216,13 +218,16 @@ export function SpawnView() {
                       {res.lines.length > 0
                         ? res.lines.join("\n")
                         : res.status === "RUNNING"
-                          ? "正在流式接收子进程输出…"
-                          : "(无输出)"}
+                          ? t("spawn.streamingOutput")
+                          : t("spawn.noOutput")}
                     </div>
                     <div className="text-xs text-[var(--muted-foreground)] tabular-nums text-right">
                       {res.durationMs != null
-                        ? `耗时 ${(res.durationMs / 1000).toFixed(2)}s · exit ${res.exitCode ?? 0}`
-                        : "运行中…"}
+                        ? t("spawn.durationExit", {
+                            sec: (res.durationMs / 1000).toFixed(2),
+                            code: res.exitCode ?? 0,
+                          })
+                        : t("common.running")}
                     </div>
                   </div>
                 );
@@ -230,7 +235,7 @@ export function SpawnView() {
             </div>
           ) : (
             <div className="p-6 rounded-xl bg-[var(--background)] border border-dashed border-[var(--border)] text-center text-xs text-[var(--muted-foreground)]">
-              勾选多个 Flutter 版本后点击「启动并发矩阵」，将通过 Rust Tokio 并行拉起真实 FVM 进程并实时对比输出。
+              {t("spawn.emptyHint")}
             </div>
           )}
         </div>

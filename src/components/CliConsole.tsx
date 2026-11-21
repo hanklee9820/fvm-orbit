@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp, Copy, Square, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { useFvmStore } from "../store/useFvmStore";
 
 const HEIGHT_STORAGE_KEY = "fvm_orbit_console_height";
@@ -22,6 +23,7 @@ function loadSavedHeight(): number {
 }
 
 export function CliConsole() {
+  const { t } = useI18n();
   const {
     logs,
     consoleOpen,
@@ -108,7 +110,7 @@ export function CliConsole() {
 
   const copyCommand = (cmd: string) => {
     void navigator.clipboard?.writeText(cmd);
-    pushToast(`已复制: ${cmd}`, "success");
+    pushToast(t("common.copied", { text: cmd }), "success");
   };
 
   return (
@@ -117,8 +119,8 @@ export function CliConsole() {
       <div
         role="separator"
         aria-orientation="horizontal"
-        aria-label="上下拖拽调整实时 CLI 控制台高度（双击重置）"
-        title="上下拖拽调整控制台高度（双击重置默认高度）"
+        aria-label={t("console.resizeAria")}
+        title={t("console.resizeTitle")}
         onMouseDown={startResize}
         onDoubleClick={resetHeight}
         className={`group h-2 -mt-1 w-full cursor-row-resize flex items-center justify-center z-20 transition-colors ${
@@ -149,7 +151,7 @@ export function CliConsole() {
             }`}
           />
           <span className="text-xs font-semibold tracking-wide uppercase text-[var(--muted-foreground)] shrink-0">
-            实时 CLI 透明控制台
+            {t("console.title")}
           </span>
           {latest && (
             <span
@@ -168,7 +170,7 @@ export function CliConsole() {
             className="flex items-center gap-1 text-xs px-2 py-1 rounded hover:bg-[var(--secondary)] text-[var(--muted-foreground)] transition cursor-pointer"
           >
             <Trash2 className="w-3 h-3" />
-            <span>清空</span>
+            <span>{t("console.clear")}</span>
           </button>
           <button
             type="button"
@@ -176,7 +178,7 @@ export function CliConsole() {
             className="flex items-center gap-1 text-xs px-2.5 py-1 rounded bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] transition cursor-pointer"
           >
             {consoleOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-            <span>{consoleOpen ? "收起" : "展开"}</span>
+            <span>{consoleOpen ? t("console.collapse") : t("console.expand")}</span>
           </button>
         </div>
       </div>
@@ -188,7 +190,7 @@ export function CliConsole() {
         >
           {logs.length === 0 ? (
             <div className="py-6 text-center text-[var(--muted-foreground)]">
-              暂无 CLI 执行记录，在上方触发任意操作将在此实时流式输出对应 fvm 指令与日志。
+              {t("console.empty")}
             </div>
           ) : (
             logs.map((l) => {
@@ -232,7 +234,7 @@ export function CliConsole() {
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--error)]/15 text-[var(--error)] border border-[var(--error)]/40 cursor-pointer"
                         >
                           <Square className="w-2.5 h-2.5 fill-current" />
-                          <span>中止</span>
+                          <span>{t("console.abort")}</span>
                         </button>
                       )}
                       <button
@@ -241,7 +243,7 @@ export function CliConsole() {
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] cursor-pointer"
                       >
                         <Copy className="w-3 h-3" />
-                        <span>复制</span>
+                        <span>{t("common.copy")}</span>
                       </button>
                     </div>
                   </div>

@@ -45,8 +45,10 @@ fn set_ns_app_icon_on_main_thread(
     use objc2_foundation::NSData;
 
     let data = NSData::with_bytes(bytes);
-    let image = NSImage::initWithData(NSImage::alloc(), &data)
-        .ok_or_else(|| "无法解析应用图标 PNG 数据".to_string())?;
+    let image = NSImage::initWithData(NSImage::alloc(), &data).ok_or_else(|| {
+        crate::i18n::pick("无法解析应用图标 PNG 数据", "Failed to decode app icon PNG data")
+            .to_string()
+    })?;
     let ns_app = NSApplication::sharedApplication(mtm);
     unsafe {
         ns_app.setApplicationIconImage(Some(&image));
@@ -76,24 +78,51 @@ pub fn apply_dock_icon(app: &AppHandle, style: &str) -> Result<String, String> {
             app.run_on_main_thread(move || {
                 let res = match objc2::MainThreadMarker::new() {
                     Some(mtm) => set_ns_app_icon_on_main_thread(mtm, bytes),
-                    None => Err("未能在 macOS 主线程设置应用图标".to_string()),
+                    None => Err(crate::i18n::pick(
+                        "未能在 macOS 主线程设置应用图标",
+                        "Failed to set app icon on macOS main thread",
+                    )
+                    .to_string()),
                 };
                 let _ = tx.send(res);
             })
-            .map_err(|e| format!("调度主线程更新图标失败: {e}"))?;
+            .map_err(|e| {
+                format!(
+                    "{}: {e}",
+                    crate::i18n::pick(
+                        "调度主线程更新图标失败",
+                        "Failed to dispatch icon update to main thread"
+                    )
+                )
+            })?;
 
-            rx.recv()
-                .map_err(|e| format!("等待主线程图标更新结果失败: {e}"))??;
+            rx.recv().map_err(|e| {
+                format!(
+                    "{}: {e}",
+                    crate::i18n::pick(
+                        "等待主线程图标更新结果失败",
+                        "Failed waiting for main thread icon update"
+                    )
+                )
+            })??;
         }
     }
 
     #[cfg(not(target_os = "macos"))]
     {
         if let Some(win) = app.get_webview_window("main") {
-            let img = tauri::image::Image::from_bytes(bytes)
-                .map_err(|e| format!("解析窗口图标失败: {e}"))?;
-            win.set_icon(img)
-                .map_err(|e| format!("更新窗口图标失败: {e}"))?;
+            let img = tauri::image::Image::from_bytes(bytes).map_err(|e| {
+                format!(
+                    "{}: {e}",
+                    crate::i18n::pick("解析窗口图标失败", "Failed to decode window icon")
+                )
+            })?;
+            win.set_icon(img).map_err(|e| {
+                format!(
+                    "{}: {e}",
+                    crate::i18n::pick("更新窗口图标失败", "Failed to update window icon")
+                )
+            })?;
         }
     }
 

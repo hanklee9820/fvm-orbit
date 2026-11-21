@@ -1,7 +1,9 @@
 import { X } from "lucide-react";
+import { useI18n } from "../i18n/useI18n";
 import { formatBytes, useFvmStore } from "../store/useFvmStore";
 
 export function MenuBarPopover() {
+  const { t } = useI18n();
   const {
     menubarOpen,
     setMenubarOpen,
@@ -24,7 +26,7 @@ export function MenuBarPopover() {
       <div className="px-4 py-3 bg-[var(--sidebar)] border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
-          <span className="text-xs font-semibold">FVM Orbit · 快切舱</span>
+          <span className="text-xs font-semibold">{t("menubar.title")}</span>
         </div>
         <button
           type="button"
@@ -38,11 +40,11 @@ export function MenuBarPopover() {
       <div className="p-3.5 space-y-3 text-xs">
         <div className="p-2.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2">
           <div className="flex items-center justify-between text-[var(--muted-foreground)]">
-            <span>当前聚焦项目</span>
-            <span className="text-[var(--success)]">实时同步</span>
+            <span>{t("menubar.focusedProject")}</span>
+            <span className="text-[var(--success)]">{t("common.liveSync")}</span>
           </div>
           <div className="font-semibold truncate">
-            {activeProj ? activeProj.name : "暂无已追踪项目"}
+            {activeProj ? activeProj.name : t("menubar.noTrackedProjects")}
           </div>
           {activeProj && cached.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -72,7 +74,7 @@ export function MenuBarPopover() {
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--muted-foreground)]">全局默认 SDK (fvm global)</span>
+            <span className="text-[var(--muted-foreground)]">{t("menubar.globalSdkLabel")}</span>
             {snapshot.context.globalVersion ? (
               <span className="font-mono font-semibold text-[var(--foreground)]">
                 {snapshot.context.globalVersion}
@@ -86,13 +88,13 @@ export function MenuBarPopover() {
                 }}
                 className="font-mono font-semibold text-[var(--primary)] hover:underline cursor-pointer"
               >
-                去设置
+                {t("common.setUp")}
               </button>
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {cached.length === 0 ? (
-              <span className="text-[var(--muted-foreground)]">暂无已缓存 SDK</span>
+              <span className="text-[var(--muted-foreground)]">{t("menubar.noCachedSdks")}</span>
             ) : (
               cached.map((sdk) => (
                 <button
@@ -114,7 +116,7 @@ export function MenuBarPopover() {
 
         <div className="pt-2 border-t border-[var(--border)] flex items-center justify-between">
           <span className="text-[var(--muted-foreground)] font-mono">
-            缓存 {formatBytes(snapshot.totalCacheBytes)}
+            {t("menubar.cacheSize", { size: formatBytes(snapshot.totalCacheBytes) })}
           </span>
           <button
             type="button"
@@ -124,7 +126,7 @@ export function MenuBarPopover() {
             }}
             className="text-[var(--primary)] font-medium cursor-pointer hover:underline"
           >
-            打开瘦身雷达
+            {t("menubar.openCleanup")}
           </button>
         </div>
       </div>

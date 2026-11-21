@@ -1,10 +1,12 @@
-import { Monitor, Moon, PanelTop, RefreshCw, Search, Settings, Sun } from "lucide-react";
+import { Languages, Monitor, Moon, PanelTop, RefreshCw, Search, Settings, Sun } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
+import { useI18n } from "../i18n/useI18n";
 import { getProxyDisplaySummary, useFvmStore } from "../store/useFvmStore";
 import { isTauriRuntime } from "../services/fvmBridge";
 import type { ThemeMode } from "../types/fvm";
 
 export function TitleBar() {
+  const { locale, setLanguage, t } = useI18n();
   const {
     snapshot,
     theme,
@@ -26,7 +28,7 @@ export function TitleBar() {
       ? "macOS arm64"
       : `${snapshot?.context.osLabel ?? "macOS"} ${snapshot?.context.archLabel ?? ""}`.trim();
   const inTauri = isTauriRuntime();
-  const proxySummary = getProxyDisplaySummary(proxySettings, systemProxyInfo);
+  const proxySummary = getProxyDisplaySummary(proxySettings, systemProxyInfo, locale);
   const proxyDotClass =
     proxySummary.tone === "active"
       ? "bg-[var(--success)]"
@@ -36,12 +38,18 @@ export function TitleBar() {
 
   const themeOrder: ThemeMode[] = ["system", "light", "dark"];
   const themeMeta: Record<ThemeMode, { label: string; Icon: typeof Sun }> = {
-    system: { label: "跟随系统", Icon: Monitor },
-    light: { label: "浅色模式", Icon: Sun },
-    dark: { label: "深色模式", Icon: Moon },
+    system: { label: t("titleBar.themeSystem"), Icon: Monitor },
+    light: { label: t("titleBar.themeLight"), Icon: Sun },
+    dark: { label: t("titleBar.themeDark"), Icon: Moon },
   };
   const nextTheme = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
   const CurrentThemeIcon = themeMeta[theme].Icon;
+
+  const nextLocale = locale === "zh" ? "en" : "zh";
+  const currentLangLabel =
+    locale === "zh" ? t("common.langNameZh") : t("common.langNameEn");
+  const nextLangLabel =
+    nextLocale === "zh" ? t("common.langNameZh") : t("common.langNameEn");
 
   return (
     <header
@@ -74,19 +82,19 @@ export function TitleBar() {
       >
         <span className="flex items-center gap-2 truncate">
           <Search className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">搜索版本、项目或 FVM 指令…</span>
+          <span className="truncate">{t("titleBar.searchPlaceholder")}</span>
         </span>
         <kbd className="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs shrink-0">
           ⌘K
         </kbd>
       </button>
 
-      {/* Right: Proxy Pill + Refresh + Theme + Settings + Quick Switch Popover */}
+      {/* Right: Proxy Pill + Refresh + Language + Theme + Settings + Quick Switch Popover */}
       <div className="flex items-center gap-2 shrink-0">
         <button
           type="button"
           onClick={() => openSettings("proxy")}
-          title={`当前下载网络：${proxySummary.statusLabel}（点击配置代理）`}
+          title={t("titleBar.proxyTooltip", { status: proxySummary.statusLabel })}
           className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-xs font-medium text-[var(--foreground)] transition cursor-pointer"
         >
           <span className={`w-2 h-2 rounded-full shrink-0 ${proxyDotClass}`} />
@@ -97,7 +105,7 @@ export function TitleBar() {
           type="button"
           onClick={() => void refreshAll()}
           disabled={loading}
-          title="刷新本地 FVM 状态"
+          title={t("titleBar.refreshTooltip")}
           className="p-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
@@ -105,9 +113,26 @@ export function TitleBar() {
 
         <button
           type="button"
+          onClick={() => void setLanguage(nextLocale)}
+          title={t("titleBar.languageTooltip", {
+            current: currentLangLabel,
+            next: nextLangLabel,
+          })}
+          aria-label={t("titleBar.languageAria")}
+          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-xs font-mono transition cursor-pointer"
+        >
+          <Languages className="w-3.5 h-3.5 shrink-0" />
+          <span>{locale === "zh" ? "中" : "EN"}</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setTheme(nextTheme)}
-          title={`主题：${themeMeta[theme].label}（点击切换为${themeMeta[nextTheme].label}）`}
-          aria-label={`主题：${themeMeta[theme].label}`}
+          title={t("titleBar.themeTooltip", {
+            current: themeMeta[theme].label,
+            next: themeMeta[nextTheme].label,
+          })}
+          aria-label={t("titleBar.themeAria", { current: themeMeta[theme].label })}
           className="p-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer"
         >
           <CurrentThemeIcon className="w-3.5 h-3.5" />
@@ -116,8 +141,8 @@ export function TitleBar() {
         <button
           type="button"
           onClick={() => openSettings()}
-          title="设置 (⌘,)"
-          aria-label="打开设置"
+          title={t("titleBar.settingsTooltip")}
+          aria-label={t("titleBar.settingsAria")}
           className={`p-1.5 rounded-lg border transition cursor-pointer ${
             settingsOpen
               ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
@@ -135,10 +160,10 @@ export function TitleBar() {
               ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
               : "bg-[var(--card)] border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]"
           }`}
-          title="打开快切舱浮窗（同时常驻 macOS 顶栏托盘）"
+          title={t("titleBar.quickSwitchTooltip")}
         >
           <PanelTop className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">快切舱</span>
+          <span className="hidden sm:inline">{t("titleBar.quickSwitch")}</span>
         </button>
       </div>
     </header>

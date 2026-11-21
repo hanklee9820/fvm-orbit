@@ -2,12 +2,14 @@ import {
   AppWindow,
   Check,
   Globe,
+  Languages,
   Loader2,
   RefreshCw,
   Settings,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { testProxyConnectivity } from "../services/fvmBridge";
 import {
   getProxyDisplaySummary,
@@ -16,6 +18,7 @@ import {
 } from "../store/useFvmStore";
 import type {
   AppIconStyle,
+  LanguagePreference,
   ProxyMode,
   ProxyProtocol,
   ProxySettings,
@@ -47,6 +50,7 @@ function settingsEqual(a: ProxySettings, b: ProxySettings): boolean {
 }
 
 export function SettingsModal() {
+  const { language, locale, setLanguage, t } = useI18n();
   const {
     settingsOpen,
     settingsTab,
@@ -78,7 +82,7 @@ export function SettingsModal() {
 
   const dirty = !settingsEqual(draft, proxySettings);
   const effectiveIcon = resolveEffectiveAppIcon(appIconStyle, theme);
-  const summary = getProxyDisplaySummary(draft, systemProxyInfo);
+  const summary = getProxyDisplaySummary(draft, systemProxyInfo, locale);
   const sampleVersion = releases?.channels.stable?.version ?? "3.50.1";
 
   const envPreview = useMemo(() => {
@@ -90,7 +94,7 @@ export function SettingsModal() {
         const u = systemProxyInfo.effectiveUrl;
         return `HTTP_PROXY="${u}" HTTPS_PROXY="${u}" fvm install ${sampleVersion}`;
       }
-      return `# 未检测到 macOS 系统代理，将回退直连执行 fvm install ${sampleVersion}`;
+      return t("settings.proxy.systemFallbackComment", { version: sampleVersion });
     }
     const scheme = draft.protocol === "socks5" ? "socks5h" : draft.protocol;
     const host = draft.host.trim() || "127.0.0.1";
@@ -101,7 +105,7 @@ export function SettingsModal() {
     const url = `${scheme}://${authPart}${host}:${port}`;
     const bypassPart = draft.bypass.trim() ? ` NO_PROXY="${draft.bypass.trim()}"` : "";
     return `HTTP_PROXY="${url}" HTTPS_PROXY="${url}" ALL_PROXY="${url}"${bypassPart} fvm install ${sampleVersion}`;
-  }, [draft, systemProxyInfo, sampleVersion]);
+  }, [draft, systemProxyInfo, sampleVersion, t]);
 
   if (!settingsOpen) return null;
 
@@ -175,7 +179,21 @@ export function SettingsModal() {
   };
 
   const iconNavBadge =
-    appIconStyle === "dark" ? "黑底" : appIconStyle === "light" ? "白底" : "自动";
+    appIconStyle === "dark"
+      ? t("settings.iconBadgeDark")
+      : appIconStyle === "light"
+        ? t("settings.iconBadgeLight")
+        : t("settings.iconBadgeAuto");
+
+  const langNavBadge =
+    language === "system"
+      ? t("common.langBadgeAuto")
+      : language === "zh"
+        ? t("common.langBadgeZh")
+        : t("common.langBadgeEn");
+
+  const resolvedLangDisplay =
+    locale === "zh" ? t("common.langNameZh") : t("common.langNameEn");
 
   const iconOptions: {
     id: AppIconStyle;
@@ -185,21 +203,56 @@ export function SettingsModal() {
   }[] = [
     {
       id: "dark",
-      title: "黑底曜石 Logo",
-      desc: "深邃曜石玻璃底，经典开发者终端质感",
+      title: t("settings.appearance.optDarkTitle"),
+      desc: t("settings.appearance.optDarkDesc"),
       badge: "Dark",
     },
     {
       id: "light",
-      title: "白底瓷光 Logo",
-      desc: "纯净瓷白高对比底，适配深色 Dock 与浅色桌面",
+      title: t("settings.appearance.optLightTitle"),
+      desc: t("settings.appearance.optLightDesc"),
       badge: "Light",
     },
     {
       id: "auto",
-      title: "跟随外观自动切换",
-      desc: `随应用浅色 / 深色模式自动切换（当前：${effectiveIcon === "light" ? "白底" : "黑底"}）`,
+      title: t("settings.appearance.optAutoTitle"),
+      desc: t("settings.appearance.optAutoDesc", {
+        current:
+          effectiveIcon === "light"
+            ? t("settings.appearance.styleLightShort")
+            : t("settings.appearance.styleDarkShort"),
+      }),
       badge: "Auto",
+    },
+  ];
+
+  const languageOptions: {
+    id: LanguagePreference;
+    title: string;
+    desc: string;
+    badge: string;
+    glyph: string;
+  }[] = [
+    {
+      id: "system",
+      title: t("settings.language.optSystemTitle"),
+      desc: t("settings.language.optSystemDesc", { resolved: resolvedLangDisplay }),
+      badge: t("settings.language.optSystemBadge"),
+      glyph: "Aa",
+    },
+    {
+      id: "zh",
+      title: t("settings.language.optZhTitle"),
+      desc: t("settings.language.optZhDesc"),
+      badge: "zh-CN",
+      glyph: "中",
+    },
+    {
+      id: "en",
+      title: t("settings.language.optEnTitle"),
+      desc: t("settings.language.optEnDesc"),
+      badge: "en-US",
+      glyph: "EN",
     },
   ];
 
@@ -210,20 +263,28 @@ export function SettingsModal() {
   }[] = [
     {
       id: "direct",
-      title: "直连（不走代理）",
-      desc: "强制忽略系统代理，适合国内镜像源",
+      title: t("settings.proxy.modeDirectTitle"),
+      desc: t("settings.proxy.modeDirectDesc"),
     },
     {
       id: "system",
-      title: "跟随系统代理",
-      desc: "自动读取 macOS 当前网络代理端口",
+      title: t("settings.proxy.modeSystemTitle"),
+      desc: t("settings.proxy.modeSystemDesc"),
     },
     {
       id: "custom",
-      title: "自定义代理",
-      desc: "独立配置 HTTP / SOCKS5 代理地址",
+      title: t("settings.proxy.modeCustomTitle"),
+      desc: t("settings.proxy.modeCustomDesc"),
     },
   ];
+
+  const footerHint = dirty
+    ? t("settings.footer.unsavedProxy")
+    : settingsTab === "proxy"
+      ? t("settings.footer.savedProxy")
+      : settingsTab === "appearance"
+        ? t("settings.footer.savedAppearance")
+        : t("settings.footer.savedLanguage");
 
   return (
     <div
@@ -235,7 +296,7 @@ export function SettingsModal() {
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="FVM Orbit 设置"
+        aria-label={t("settings.dialogAria")}
         className="w-full max-w-2xl rounded-2xl bg-[var(--card)] border border-[var(--border)] glass-elevated overflow-hidden flex flex-col max-h-[88vh]"
       >
         {/* Modal Header */}
@@ -245,7 +306,7 @@ export function SettingsModal() {
               <Settings className="w-4 h-4" />
             </span>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold">设置</h2>
+              <h2 className="text-sm font-semibold">{t("settings.title")}</h2>
               <kbd className="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-xs">
                 ⌘,
               </kbd>
@@ -254,8 +315,8 @@ export function SettingsModal() {
           <button
             type="button"
             onClick={() => void handleDone()}
-            title="关闭 (Esc)"
-            aria-label="关闭设置"
+            title={t("settings.closeTooltip")}
+            aria-label={t("settings.closeAria")}
             className="p-1.5 rounded-lg text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)] transition cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -275,7 +336,7 @@ export function SettingsModal() {
                   : "hover:bg-[var(--card)] text-[var(--foreground)]"
               }`}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 min-w-0">
                 <Globe
                   className={`w-4 h-4 shrink-0 ${
                     settingsTab === "proxy"
@@ -283,10 +344,10 @@ export function SettingsModal() {
                       : "text-[var(--muted-foreground)]"
                   }`}
                 />
-                <span>网络代理</span>
+                <span className="truncate">{t("settings.tabProxy")}</span>
               </span>
               <span
-                className={`px-1.5 py-0.5 rounded text-xs ${
+                className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
                   settingsTab === "proxy"
                     ? "bg-white/20 text-[var(--primary-foreground)]"
                     : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
@@ -305,7 +366,7 @@ export function SettingsModal() {
                   : "hover:bg-[var(--card)] text-[var(--foreground)]"
               }`}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 min-w-0">
                 <AppWindow
                   className={`w-4 h-4 shrink-0 ${
                     settingsTab === "appearance"
@@ -313,16 +374,46 @@ export function SettingsModal() {
                       : "text-[var(--muted-foreground)]"
                   }`}
                 />
-                <span>桌面图标</span>
+                <span className="truncate">{t("settings.tabAppearance")}</span>
               </span>
               <span
-                className={`px-1.5 py-0.5 rounded text-xs ${
+                className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
                   settingsTab === "appearance"
                     ? "bg-white/20 text-[var(--primary-foreground)]"
                     : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
                 }`}
               >
                 {iconNavBadge}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSettingsTab("language")}
+              className={`flex-1 sm:flex-none text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 text-xs font-medium transition cursor-pointer ${
+                settingsTab === "language"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "hover:bg-[var(--card)] text-[var(--foreground)]"
+              }`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <Languages
+                  className={`w-4 h-4 shrink-0 ${
+                    settingsTab === "language"
+                      ? "text-[var(--primary-foreground)]"
+                      : "text-[var(--muted-foreground)]"
+                  }`}
+                />
+                <span className="truncate">{t("settings.tabLanguage")}</span>
+              </span>
+              <span
+                className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
+                  settingsTab === "language"
+                    ? "bg-white/20 text-[var(--primary-foreground)]"
+                    : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
+                }`}
+              >
+                {langNavBadge}
               </span>
             </button>
           </nav>
@@ -333,9 +424,9 @@ export function SettingsModal() {
               <div className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-0.5">
-                    <h3 className="text-sm font-semibold">Flutter 下载网络代理</h3>
+                    <h3 className="text-sm font-semibold">{t("settings.proxy.heading")}</h3>
                     <p className="text-xs text-[var(--muted-foreground)]">
-                      控制下载 Flutter SDK、拉取官方发布列表及克隆 Git 仓库时是否走代理
+                      {t("settings.proxy.subtitle")}
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs font-medium shrink-0">
@@ -386,18 +477,18 @@ export function SettingsModal() {
                   <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-2 text-xs">
                     <div className="flex items-center gap-2 font-medium">
                       <span className="w-2 h-2 rounded-full bg-[var(--success)]" />
-                      <span>已强制绕过一切系统及终端代理环境变量</span>
+                      <span>{t("settings.proxy.directActiveHeadline")}</span>
                     </div>
                     <p className="text-[var(--muted-foreground)] leading-relaxed">
-                      执行{" "}
-                      <code className="font-mono text-[var(--code-foreground)]">fvm install</code>{" "}
-                      时会自动清除{" "}
+                      {t("settings.proxy.directDescBeforeCmd")}{" "}
+                      <code className="font-mono text-[var(--code-foreground)]">fvm install</code>
+                      {t("settings.proxy.directDescBetweenCmdAndProxy")}{" "}
                       <code className="font-mono text-[var(--code-foreground)]">HTTP_PROXY</code> /{" "}
                       <code className="font-mono text-[var(--code-foreground)]">HTTPS_PROXY</code> /{" "}
                       <code className="font-mono text-[var(--code-foreground)]">ALL_PROXY</code>{" "}
-                      并设置{" "}
+                      {t("settings.proxy.directDescBetweenProxyAndNoProxy")}{" "}
                       <code className="font-mono text-[var(--code-foreground)]">NO_PROXY=*</code>
-                      ，避免国内清华镜像误走代理导致减速或握手失败。
+                      {t("settings.proxy.directDescAfterNoProxy")}
                     </p>
                   </div>
                 )}
@@ -407,7 +498,7 @@ export function SettingsModal() {
                   <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3 text-xs">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium">
-                        macOS 系统代理实时探测 (
+                        {t("settings.proxy.systemProbeTitle")} (
                         <code className="font-mono text-[var(--code-foreground)]">
                           scutil --proxy
                         </code>
@@ -422,7 +513,7 @@ export function SettingsModal() {
                         <RefreshCw
                           className={`w-3 h-3 ${detectingSystemProxy ? "animate-spin" : ""}`}
                         />
-                        <span>重新检测</span>
+                        <span>{t("settings.proxy.redetect")}</span>
                       </button>
                     </div>
 
@@ -445,7 +536,7 @@ export function SettingsModal() {
                                   systemProxyInfo.httpHost &&
                                   systemProxyInfo.httpPort
                                 ? `${systemProxyInfo.httpHost}:${systemProxyInfo.httpPort}`
-                                : "未开启"}
+                                : t("settings.proxy.off")}
                           </span>
                         </div>
                         <div className="px-3 py-2 rounded-lg bg-[var(--card)] border border-[var(--border)] flex items-center justify-between gap-2">
@@ -461,13 +552,13 @@ export function SettingsModal() {
                             systemProxyInfo.socksHost &&
                             systemProxyInfo.socksPort
                               ? `${systemProxyInfo.socksHost}:${systemProxyInfo.socksPort}`
-                              : "未开启"}
+                              : t("settings.proxy.off")}
                           </span>
                         </div>
                       </div>
                     ) : (
                       <div className="px-3 py-2.5 rounded-lg bg-[var(--warning)]/12 border border-[var(--warning)]/40 text-[var(--warning)] leading-relaxed">
-                        未检测到已启用的 macOS 系统代理（Clash / Surge 等未开启系统代理），下载将自动回退为直连。
+                        {t("settings.proxy.systemNotDetected")}
                       </div>
                     )}
                   </div>
@@ -478,7 +569,9 @@ export function SettingsModal() {
                   <div className="p-3.5 rounded-xl bg-[var(--background)] border border-[var(--border)] space-y-3 text-xs">
                     <div className="grid grid-cols-12 gap-2.5">
                       <label className="col-span-4 sm:col-span-3 space-y-1">
-                        <span className="text-[var(--muted-foreground)]">协议</span>
+                        <span className="text-[var(--muted-foreground)]">
+                          {t("settings.proxy.protocol")}
+                        </span>
                         <select
                           value={draft.protocol}
                           onChange={(e) => {
@@ -498,7 +591,9 @@ export function SettingsModal() {
                       </label>
 
                       <label className="col-span-5 sm:col-span-6 space-y-1">
-                        <span className="text-[var(--muted-foreground)]">代理主机</span>
+                        <span className="text-[var(--muted-foreground)]">
+                          {t("settings.proxy.host")}
+                        </span>
                         <input
                           type="text"
                           value={draft.host}
@@ -515,7 +610,9 @@ export function SettingsModal() {
                       </label>
 
                       <label className="col-span-3 space-y-1">
-                        <span className="text-[var(--muted-foreground)]">端口</span>
+                        <span className="text-[var(--muted-foreground)]">
+                          {t("settings.proxy.port")}
+                        </span>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -535,7 +632,9 @@ export function SettingsModal() {
 
                     {/* Quick Port Presets */}
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[var(--muted-foreground)]">常用端口：</span>
+                      <span className="text-[var(--muted-foreground)]">
+                        {t("settings.proxy.presetsLabel")}
+                      </span>
                       {PORT_PRESETS.map((preset) => {
                         const matched =
                           draft.protocol === preset.protocol &&
@@ -561,12 +660,12 @@ export function SettingsModal() {
                     {/* Collapsible Advanced Options */}
                     <details className="pt-1.5 border-t border-[var(--border)]">
                       <summary className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer select-none">
-                        高级选项：绕过列表 (NO_PROXY) 与身份认证
+                        {t("settings.proxy.advancedSummary")}
                       </summary>
                       <div className="pt-2.5 space-y-2.5">
                         <label className="block space-y-1">
                           <span className="text-[var(--muted-foreground)]">
-                            不走代理的域名 / 网段 (NO_PROXY)
+                            {t("settings.proxy.bypassLabel")}
                           </span>
                           <input
                             type="text"
@@ -578,17 +677,21 @@ export function SettingsModal() {
                         </label>
                         <div className="grid grid-cols-2 gap-2.5">
                           <label className="space-y-1">
-                            <span className="text-[var(--muted-foreground)]">用户名（可选）</span>
+                            <span className="text-[var(--muted-foreground)]">
+                              {t("settings.proxy.usernameLabel")}
+                            </span>
                             <input
                               type="text"
                               value={draft.username}
                               onChange={(e) => setDraft({ ...draft, username: e.target.value })}
-                              placeholder="留空则无需认证"
+                              placeholder={t("settings.proxy.usernamePlaceholder")}
                               className="w-full px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
                             />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-[var(--muted-foreground)]">密码（可选）</span>
+                            <span className="text-[var(--muted-foreground)]">
+                              {t("settings.proxy.passwordLabel")}
+                            </span>
                             <input
                               type="password"
                               value={draft.password}
@@ -607,7 +710,7 @@ export function SettingsModal() {
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="text-[var(--muted-foreground)] font-medium">
-                      下载进程环境变量预览
+                      {t("settings.proxy.envPreviewHeading")}
                     </span>
                     <div className="flex flex-wrap items-center gap-2">
                       {testResult && (
@@ -630,7 +733,7 @@ export function SettingsModal() {
                         className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 font-medium transition cursor-pointer disabled:opacity-50"
                       >
                         {testing && <Loader2 className="w-3 h-3 animate-spin" />}
-                        <span>测试下载源连通性</span>
+                        <span>{t("settings.proxy.testConnectivity")}</span>
                       </button>
                     </div>
                   </div>
@@ -639,18 +742,23 @@ export function SettingsModal() {
                   </div>
                 </div>
               </div>
-            ) : (
+            ) : settingsTab === "appearance" ? (
               /* TAB 2: DESKTOP APP LOGO */
               <div className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-0.5">
-                    <h3 className="text-sm font-semibold">桌面应用图标 (App Logo)</h3>
+                    <h3 className="text-sm font-semibold">{t("settings.appearance.heading")}</h3>
                     <p className="text-xs text-[var(--muted-foreground)]">
-                      即时切换 macOS Dock 与 ⌘+Tab 切换器中的 FVM Orbit 图标风格，重启后自动保持
+                      {t("settings.appearance.subtitle")}
                     </p>
                   </div>
                   <span className="px-2.5 py-1 rounded-md bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs shrink-0">
-                    当前：{effectiveIcon === "light" ? "白底瓷光" : "黑底曜石"}
+                    {t("settings.appearance.activeLabel", {
+                      style:
+                        effectiveIcon === "light"
+                          ? t("settings.appearance.styleLightName")
+                          : t("settings.appearance.styleDarkName"),
+                    })}
                   </span>
                 </div>
 
@@ -672,14 +780,14 @@ export function SettingsModal() {
                           {opt.id === "dark" && (
                             <img
                               src="/icons/app-icon-dark.png"
-                              alt="黑底曜石 App Logo"
+                              alt={t("settings.appearance.optDarkAlt")}
                               className="w-12 h-12 object-contain drop-shadow-sm transition-transform group-hover:scale-105"
                             />
                           )}
                           {opt.id === "light" && (
                             <img
                               src="/icons/app-icon-light.png"
-                              alt="白底瓷光 App Logo"
+                              alt={t("settings.appearance.optLightAlt")}
                               className="w-12 h-12 object-contain drop-shadow-sm transition-transform group-hover:scale-105"
                             />
                           )}
@@ -687,13 +795,13 @@ export function SettingsModal() {
                             <div className="relative w-12 h-12 transition-transform group-hover:scale-105">
                               <img
                                 src="/icons/app-icon-light.png"
-                                alt="白底部分"
+                                alt={t("settings.appearance.optAutoAltLight")}
                                 className="absolute inset-0 w-12 h-12 object-contain"
                                 style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
                               />
                               <img
                                 src="/icons/app-icon-dark.png"
-                                alt="黑底部分"
+                                alt={t("settings.appearance.optAutoAltDark")}
                                 className="absolute inset-0 w-12 h-12 object-contain"
                                 style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
                               />
@@ -707,7 +815,69 @@ export function SettingsModal() {
                             {active ? (
                               <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold shrink-0">
                                 <Check className="w-3 h-3" />
-                                <span>已选</span>
+                                <span>{t("settings.appearance.selected")}</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-xs shrink-0">
+                                {opt.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                            {opt.desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* TAB 3: INTERFACE LANGUAGE */
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-semibold">{t("settings.language.heading")}</h3>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {t("settings.language.subtitle")}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-md bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs shrink-0">
+                    {t("settings.language.activeLabel", { lang: resolvedLangDisplay })}
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {languageOptions.map((opt) => {
+                    const active = language === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => void setLanguage(opt.id)}
+                        className={`group w-full text-left p-3.5 rounded-xl border transition flex items-center gap-3.5 cursor-pointer ${
+                          active
+                            ? "bg-[var(--primary)]/10 border-[var(--primary)] ring-1 ring-[var(--primary)]/40"
+                            : "bg-[var(--background)] border-[var(--border)] hover:border-[var(--primary)]/60"
+                        }`}
+                      >
+                        <div
+                          className={`w-11 h-11 rounded-xl shrink-0 flex items-center justify-center font-mono text-sm font-bold border transition ${
+                            active
+                              ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
+                              : "bg-[var(--card)] text-[var(--foreground)] border-[var(--border)]"
+                          }`}
+                        >
+                          {opt.glyph}
+                        </div>
+
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold truncate">{opt.title}</span>
+                            {active ? (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold shrink-0">
+                                <Check className="w-3 h-3" />
+                                <span>{t("settings.language.selected")}</span>
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-xs shrink-0">
@@ -730,11 +900,7 @@ export function SettingsModal() {
 
         {/* Modal Footer */}
         <div className="px-5 py-3 bg-[var(--sidebar)] border-t border-[var(--border)] flex items-center justify-between gap-3 text-xs shrink-0">
-          <span className="text-[var(--muted-foreground)]">
-            {dirty
-              ? "有未保存的代理配置修改"
-              : "配置已自动持久化，立即作用于下次 Flutter 下载"}
-          </span>
+          <span className="text-[var(--muted-foreground)]">{footerHint}</span>
           <div className="flex items-center gap-2">
             {dirty && (
               <button
@@ -743,7 +909,7 @@ export function SettingsModal() {
                 disabled={saving}
                 className="px-3.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 font-semibold cursor-pointer transition disabled:opacity-50"
               >
-                {saving ? "保存中…" : "保存代理配置"}
+                {saving ? t("settings.footer.saving") : t("settings.footer.saveProxy")}
               </button>
             )}
             <button
@@ -752,7 +918,7 @@ export function SettingsModal() {
               disabled={saving}
               className="px-3.5 py-1.5 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 font-medium cursor-pointer transition disabled:opacity-50"
             >
-              完成
+              {t("common.done")}
             </button>
           </div>
         </div>

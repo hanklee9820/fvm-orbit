@@ -1,4 +1,5 @@
 use crate::app_icon::apply_dock_icon;
+use crate::app_menu::refresh_app_menu;
 use crate::fvm::env::append_fvm_path_to_zshrc;
 use crate::fvm::models::{
     CliStreamEvent, DoctorOutput, ReleasesResponse, SpawnStreamEvent, SpawnTaskRequest,
@@ -8,12 +9,13 @@ use crate::fvm::runner::{
     fetch_releases, fetch_workspace_snapshot, run_doctor, run_spawn_matrix, stream_fvm_command,
     CancelRegistry,
 };
+use crate::i18n::{current_language_state, set_language_preference, LanguageState};
 use crate::proxy::{
     detect_system_proxy as detect_sys_proxy, get_current_proxy_settings,
     test_proxy_connectivity as run_proxy_test, update_proxy_settings, ProxySettings,
     ProxyTestResult, SystemProxyInfo,
 };
-use crate::tray::update_tray_state;
+use crate::tray::{refresh_tray_language, update_tray_state};
 use std::sync::Arc;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -126,4 +128,19 @@ pub async fn test_proxy_connectivity(
     target_url: Option<String>,
 ) -> Result<ProxyTestResult, String> {
     run_proxy_test(settings, target_url).await
+}
+
+#[tauri::command]
+pub fn get_app_language() -> LanguageState {
+    current_language_state()
+}
+
+#[tauri::command]
+pub fn set_app_language(app: AppHandle, language: String) -> Result<LanguageState, String> {
+    let state = set_language_preference(&app, &language)?;
+    if let Err(err) = refresh_app_menu(&app) {
+        eprintln!("Warning: failed to refresh macOS app menu after language change: {err}");
+    }
+    refresh_tray_language(&app);
+    Ok(state)
 }

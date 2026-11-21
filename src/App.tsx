@@ -12,11 +12,13 @@ import { DoctorView } from "./components/views/DoctorView";
 import { ReleasesView } from "./components/views/ReleasesView";
 import { SpawnView } from "./components/views/SpawnView";
 import { TopologyView } from "./components/views/TopologyView";
+import { useI18n } from "./i18n/useI18n";
 import { subscribeNativeEvents } from "./services/fvmBridge";
 import { applyThemeToDomAndWindow, syncNativeAppIcon, useFvmStore } from "./store/useFvmStore";
 import type { TabId } from "./types/fvm";
 
 export function App() {
+  const { t } = useI18n();
   const {
     activeTab,
     error,
@@ -108,7 +110,7 @@ export function App() {
                 onClick={() => void refreshAll()}
                 className="px-2.5 py-1 rounded bg-[var(--error)] text-white font-medium shrink-0 cursor-pointer"
               >
-                重试
+                {t("app.retry")}
               </button>
             </div>
           )}

@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n/useI18n";
 import { formatBytes, useFvmStore } from "../store/useFvmStore";
 import type { TabId } from "../types/fvm";
 
@@ -21,6 +22,7 @@ interface HoveredTip {
 }
 
 export function Sidebar() {
+  const { t } = useI18n();
   const { activeTab, setActiveTab, snapshot, setGlobalSdk, unlinkGlobalSdk, pushToast } =
     useFvmStore();
   const [hoveredTip, setHoveredTip] = useState<HoveredTip | null>(null);
@@ -66,51 +68,51 @@ export function Sidebar() {
   }[] = [
     {
       id: "topology",
-      label: "引力拓扑台",
-      sub: "项目 ↔ SDK 绑定",
-      detail: "可视化管理追踪项目、多 Flavor 槽位与本地 SDK 软链绑定",
+      label: t("sidebar.nav.topologyLabel"),
+      sub: t("sidebar.nav.topologySub"),
+      detail: t("sidebar.nav.topologyDetail"),
       badge: projectCount ? String(projectCount) : null,
       Icon: Network,
     },
     {
       id: "releases",
-      label: "版本宇宙",
-      sub: "缓存 & 官方发布库",
-      detail: "浏览官方 Stable / Beta / Dev 发布版、Commit Hash 与自定义 Fork 直装",
+      label: t("sidebar.nav.releasesLabel"),
+      sub: t("sidebar.nav.releasesSub"),
+      detail: t("sidebar.nav.releasesDetail"),
       badge: String(sdkCount),
       Icon: Box,
     },
     {
       id: "cleanup",
-      label: "瘦身雷达",
-      sub: "补丁收拢 & 空间清理",
-      detail: "分析磁盘占用、同系补丁零下载收拢与安全清理未引用 SDK",
+      label: t("sidebar.nav.cleanupLabel"),
+      sub: t("sidebar.nav.cleanupSub"),
+      detail: t("sidebar.nav.cleanupDetail"),
       badge: cleanupCount > 0 ? String(cleanupCount) : null,
       badgeTone: cleanupCount > 0 ? "warning" : "neutral",
       Icon: Sparkles,
     },
     {
       id: "spawn",
-      label: "Spawn 测试舱",
-      sub: "多版本 / Flavor 并发",
-      detail: "跨多个 Flutter SDK 或 Flavor 并行执行 fvm spawn / flavor / exec 命令",
+      label: t("sidebar.nav.spawnLabel"),
+      sub: t("sidebar.nav.spawnSub"),
+      detail: t("sidebar.nav.spawnDetail"),
       badge: null,
       Icon: FlaskConical,
     },
     {
       id: "doctor",
-      label: "体检 & IDE/MCP",
-      sub: "PATH / VSCode / MCP",
-      detail: "PATH 优先级诊断、VS Code / Android Studio 软链巡检、Melos 与 Dart MCP 配置",
+      label: t("sidebar.nav.doctorLabel"),
+      sub: t("sidebar.nav.doctorSub"),
+      detail: t("sidebar.nav.doctorDetail"),
       badge: pathOk ? "OK" : "1",
       badgeTone: pathOk ? "success" : "error",
       Icon: Activity,
     },
     {
       id: "config",
-      label: "Forks & 配置",
-      sub: "Fork 别名 / 镜像源 / Cache",
-      detail: "管理自定义 Flutter Fork 别名、镜像源与全局 FVM 引擎参数",
+      label: t("sidebar.nav.configLabel"),
+      sub: t("sidebar.nav.configSub"),
+      detail: t("sidebar.nav.configDetail"),
       badge: forkCount ? String(forkCount) : null,
       Icon: GitFork,
     },
@@ -229,28 +231,28 @@ export function Sidebar() {
           className="relative p-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-2"
         >
           <div className="flex items-center justify-between text-xs gap-2">
-            <span className="text-[var(--muted-foreground)] shrink-0">全局默认 SDK</span>
+            <span className="text-[var(--muted-foreground)] shrink-0">{t("sidebar.globalSdk")}</span>
             <button
               type="button"
               onClick={() => {
                 const cached = snapshot?.versions ?? [];
                 if (cached.length === 0) {
                   setActiveTab("releases");
-                  pushToast("请先安装一个 Flutter SDK，再设为全局默认", "info");
+                  pushToast(t("sidebar.globalEmptyToast"), "info");
                 } else {
                   setGlobalPickerOpen((v) => !v);
                 }
               }}
               title={
                 globalSdk
-                  ? `当前全局默认：${globalSdk}（点击快速切换）`
+                  ? t("sidebar.globalTitleCurrent", { sdk: globalSdk })
                   : (snapshot?.versions.length ?? 0) > 0
-                    ? "点击从已缓存 SDK 中选择全局默认版本"
-                    : "点击前往版本宇宙安装并设置全局默认 SDK"
+                    ? t("sidebar.globalTitlePick")
+                    : t("sidebar.globalTitleInstall")
               }
               className="inline-flex items-center gap-0.5 font-mono font-semibold text-[var(--primary)] hover:underline truncate max-w-[112px] cursor-pointer"
             >
-              <span className="truncate">{globalSdk ?? "去设置"}</span>
+              <span className="truncate">{globalSdk ?? t("common.setUp")}</span>
               <ChevronRight className="w-3 h-3 shrink-0 opacity-80" />
             </button>
           </div>
@@ -259,7 +261,7 @@ export function Sidebar() {
           {globalPickerOpen && (
             <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-xl bg-[var(--card)] border border-[var(--border)] glass-elevated p-2 space-y-1">
               <div className="px-2 py-1 text-xs font-semibold text-[var(--muted-foreground)] flex items-center justify-between">
-                <span>切换全局默认 SDK</span>
+                <span>{t("sidebar.switchGlobalTitle")}</span>
                 {globalSdk && (
                   <button
                     type="button"
@@ -269,7 +271,7 @@ export function Sidebar() {
                     }}
                     className="text-[var(--error)] hover:underline font-normal cursor-pointer"
                   >
-                    取消全局
+                    {t("sidebar.unlinkGlobal")}
                   </button>
                 )}
               </div>
@@ -302,13 +304,13 @@ export function Sidebar() {
                   }}
                   className="w-full px-2 py-1 rounded-lg text-xs text-[var(--primary)] hover:bg-[var(--sidebar)] text-left cursor-pointer"
                 >
-                  前往版本宇宙安装更多…
+                  {t("sidebar.installMoreLink")}
                 </button>
               </div>
             </div>
           )}
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--muted-foreground)]">本地缓存占用</span>
+            <span className="text-[var(--muted-foreground)]">{t("sidebar.localCacheFootprint")}</span>
             <span className="font-mono tabular-nums font-medium">
               {totalBytes > 0 ? formatBytes(totalBytes) : snapshot?.totalCacheSizeLabel ?? "0 B"}
             </span>
@@ -333,7 +335,7 @@ export function Sidebar() {
         </div>
 
         <div className="px-1 text-xs text-[var(--muted-foreground)] flex items-center justify-between">
-          <span>驱动引擎</span>
+          <span>{t("sidebar.poweredBy")}</span>
           <code className="font-mono text-[var(--code-foreground)]">fvm api *</code>
         </div>
       </div>

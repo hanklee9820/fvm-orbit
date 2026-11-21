@@ -1,17 +1,20 @@
 import { create } from "zustand";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { applyLocaleToDocument, resolveLocale, translate } from "../i18n";
 import {
   applyNativeAppIcon,
   applyZshrcPathFix,
   cancelFvmRequest,
   detectSystemProxy,
   executeSpawnMatrix,
+  fetchAppLanguage,
   fetchDoctorReport,
   fetchProxySettings,
   fetchReleases,
   fetchWorkspaceSnapshot,
   isTauriRuntime,
   pickDirectoryDialog,
+  saveAppLanguage,
   saveProxySettings,
   streamFvmCommand,
 } from "../services/fvmBridge";
@@ -19,6 +22,8 @@ import type {
   AppIconStyle,
   CliLogEntry,
   DoctorOutput,
+  LanguagePreference,
+  Locale,
   ProxySettings,
   ReleasesResponse,
   SettingsTabId,
@@ -35,6 +40,25 @@ const EXTRA_PROJECTS_KEY = "fvm_orbit_extra_projects";
 const THEME_KEY = "fvm_orbit_theme";
 const APP_ICON_STYLE_KEY = "fvm_orbit_app_icon_style";
 const PROXY_SETTINGS_KEY = "fvm_orbit_proxy_settings";
+const LANGUAGE_KEY = "fvm_orbit_language";
+
+function loadLanguagePreference(): LanguagePreference {
+  try {
+    const raw = localStorage.getItem(LANGUAGE_KEY);
+    if (raw === "system" || raw === "zh" || raw === "en") return raw;
+  } catch {
+    // ignore
+  }
+  return "system";
+}
+
+function cacheLanguagePreference(pref: LanguagePreference) {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, pref);
+  } catch {
+    // ignore
+  }
+}
 
 export const DEFAULT_PROXY_SETTINGS: ProxySettings = {
   mode: "system",
@@ -91,14 +115,15 @@ export interface ProxyDisplaySummary {
 
 export function getProxyDisplaySummary(
   settings: ProxySettings,
-  sysInfo: SystemProxyInfo | null
+  sysInfo: SystemProxyInfo | null,
+  locale: Locale = "zh"
 ): ProxyDisplaySummary {
   if (settings.mode === "direct") {
     return {
       tone: "direct",
-      navBadge: "直连",
-      statusLabel: "直连模式",
-      titleLabel: "直连下载",
+      navBadge: translate(locale, "proxySummary.directNavBadge"),
+      statusLabel: translate(locale, "proxySummary.directStatus"),
+      titleLabel: translate(locale, "proxySummary.directTitle"),
     };
   }
 
@@ -107,9 +132,9 @@ export function getProxyDisplaySummary(
     const port = settings.port.trim() || "7890";
     return {
       tone: "active",
-      navBadge: "自定义",
-      statusLabel: `代理中 · ${port}`,
-      titleLabel: `代理 · ${host}:${port}`,
+      navBadge: translate(locale, "proxySummary.customNavBadge"),
+      statusLabel: translate(locale, "proxySummary.customStatus", { port }),
+      titleLabel: translate(locale, "proxySummary.customTitle", { host, port }),
     };
   }
 
@@ -119,17 +144,17 @@ export function getProxyDisplaySummary(
     const portSuffix = activePort ? ` · ${activePort}` : "";
     return {
       tone: "active",
-      navBadge: "系统",
-      statusLabel: `跟随系统${portSuffix}`,
-      titleLabel: `系统代理${portSuffix}`,
+      navBadge: translate(locale, "proxySummary.systemNavBadge"),
+      statusLabel: translate(locale, "proxySummary.systemActiveStatus", { portSuffix }),
+      titleLabel: translate(locale, "proxySummary.systemActiveTitle", { portSuffix }),
     };
   }
 
   return {
     tone: "warning",
-    navBadge: "系统",
-    statusLabel: "系统未开（回退直连）",
-    titleLabel: "系统代理（未开）",
+    navBadge: translate(locale, "proxySummary.systemNavBadge"),
+    statusLabel: translate(locale, "proxySummary.systemOffStatus"),
+    titleLabel: translate(locale, "proxySummary.systemOffTitle"),
   };
 }
 
@@ -226,6 +251,9 @@ interface FvmStoreState {
   activeTab: TabId;
   theme: ThemeMode;
   appIconStyle: AppIconStyle;
+  language: LanguagePreference;
+  nativeSystemLocale: Locale | null;
+  resolvedLocale: Locale;
   loading: boolean;
   loadingReleases: boolean;
   loadingDoctor: boolean;
@@ -272,6 +300,7 @@ interface FvmStoreState {
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: ThemeMode) => void;
   setAppIconStyle: (style: AppIconStyle) => Promise<void>;
+  setLanguage: (pref: LanguagePreference, silent?: boolean) => Promise<void>;
   setCmdkOpen: (open: boolean) => void;
   setMenubarOpen: (open: boolean) => void;
   openSettings: (tab?: SettingsTabId) => void;
@@ -329,10 +358,17 @@ interface FvmStoreState {
   fixPathInZshrc: () => Promise<void>;
 }
 
+const initialLanguagePref = loadLanguagePreference();
+const initialResolvedLocale = resolveLocale(initialLanguagePref);
+applyLocaleToDocument(initialResolvedLocale);
+
 export const useFvmStore = create<FvmStoreState>((set, get) => ({
   activeTab: "topology",
   theme: loadTheme(),
   appIconStyle: loadAppIconStyle(),
+  language: initialLanguagePref,
+  nativeSystemLocale: null,
+  resolvedLocale: initialResolvedLocale,
   loading: false,
   loadingReleases: false,
   loadingDoctor: false,
@@ -399,17 +435,69 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     }
     set({ appIconStyle: style });
     const effective = resolveEffectiveAppIcon(style, get().theme);
+    const locale = get().resolvedLocale;
     try {
       await applyNativeAppIcon(effective);
       const label =
         style === "light"
-          ? "已切换为白底瓷光 App Logo"
+          ? translate(locale, "toast.iconSwitchedLight")
           : style === "dark"
-            ? "已切换为黑底曜石 App Logo"
-            : `App Logo 已设为跟随外观（当前：${effective === "light" ? "白底" : "黑底"}）`;
+            ? translate(locale, "toast.iconSwitchedDark")
+            : translate(locale, "toast.iconSwitchedAuto", {
+                current: translate(
+                  locale,
+                  effective === "light"
+                    ? "settings.appearance.styleLightShort"
+                    : "settings.appearance.styleDarkShort"
+                ),
+              });
       get().pushToast(label, "success");
     } catch (err) {
-      get().pushToast(`切换应用图标失败: ${String(err)}`, "error");
+      get().pushToast(translate(locale, "toast.iconSwitchFailed", { err: String(err) }), "error");
+    }
+  },
+
+  setLanguage: async (pref, silent = false) => {
+    cacheLanguagePreference(pref);
+    const optimisticResolved = resolveLocale(pref, get().nativeSystemLocale);
+    applyLocaleToDocument(optimisticResolved);
+    set({ language: pref, resolvedLocale: optimisticResolved });
+
+    let finalResolved = optimisticResolved;
+    if (isTauriRuntime()) {
+      try {
+        const saved = await saveAppLanguage(pref);
+        finalResolved = saved.resolved;
+        cacheLanguagePreference(saved.preference);
+        applyLocaleToDocument(saved.resolved);
+        set((s) => ({
+          language: saved.preference,
+          resolvedLocale: saved.resolved,
+          nativeSystemLocale:
+            saved.preference === "system" ? saved.resolved : s.nativeSystemLocale,
+        }));
+      } catch (err) {
+        get().pushToast(
+          translate(optimisticResolved, "toast.langSwitchFailed", { err: String(err) }),
+          "error"
+        );
+        return;
+      }
+    }
+
+    if (!silent) {
+      const msg =
+        pref === "zh"
+          ? translate(finalResolved, "toast.langSwitchedZh")
+          : pref === "en"
+            ? translate(finalResolved, "toast.langSwitchedEn")
+            : translate(finalResolved, "toast.langSwitchedSystem", {
+                resolved:
+                  finalResolved === "zh"
+                    ? translate(finalResolved, "common.langNameZh")
+                    : translate(finalResolved, "common.langNameEn"),
+              });
+      get().pushToast(msg, "success");
     }
   },
 
@@ -440,12 +528,17 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
         void get().refreshSystemProxy();
       }
       if (!silent) {
+        const locale = get().resolvedLocale;
         const msg =
           saved.mode === "direct"
-            ? "已切换为直连模式（下载 Flutter 不走代理）"
+            ? translate(locale, "toast.proxyDirect")
             : saved.mode === "system"
-              ? "已切换为跟随 macOS 系统代理"
-              : `已启用自定义代理 ${saved.protocol}://${saved.host}:${saved.port}`;
+              ? translate(locale, "toast.proxySystem")
+              : translate(locale, "toast.proxyCustom", {
+                  protocol: saved.protocol,
+                  host: saved.host,
+                  port: saved.port,
+                });
         get().pushToast(msg, "success");
       }
       return true;
@@ -512,18 +605,28 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   bootstrap: async () => {
     applyThemeToDomAndWindow(get().theme);
+    applyLocaleToDocument(get().resolvedLocale);
     syncNativeAppIcon(get().appIconStyle, get().theme);
     if (!isTauriRuntime()) {
-      set({ error: "请通过 FVM Orbit 桌面应用或 pnpm tauri:dev 启动，以连接本机 fvm CLI。" });
+      set({ error: translate(get().resolvedLocale, "app.notInTauriError") });
       return;
     }
     try {
-      const [savedProxy] = await Promise.all([
+      const [savedProxy, langState] = await Promise.all([
         fetchProxySettings(),
+        fetchAppLanguage(),
         get().refreshSystemProxy(),
       ]);
       cacheProxySettings(savedProxy);
-      set({ proxySettings: savedProxy });
+      cacheLanguagePreference(langState.preference);
+      applyLocaleToDocument(langState.resolved);
+      set((s) => ({
+        proxySettings: savedProxy,
+        language: langState.preference,
+        resolvedLocale: langState.resolved,
+        nativeSystemLocale:
+          langState.preference === "system" ? langState.resolved : s.nativeSystemLocale,
+      }));
     } catch {
       // keep fallback settings
     }
@@ -558,6 +661,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
         };
       });
       if (!silent) {
+        const locale = get().resolvedLocale;
         set((s) => ({
           logs: [
             {
@@ -566,7 +670,12 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
               cmd: "fvm api context & list & cleanup",
               status: "OK" as const,
               lines: [
-                `FVM ${snap.context.fvmVersion} · ${snap.versions.length} 个缓存 SDK (${snap.totalCacheSizeLabel}) · ${snap.projects.length} 个项目`,
+                translate(locale, "console.snapshotSummary", {
+                  fvmVersion: snap.context.fvmVersion,
+                  sdkCount: snap.versions.length,
+                  cacheSize: snap.totalCacheSizeLabel,
+                  projectCount: snap.projects.length,
+                }),
               ],
             },
             ...s.logs,
@@ -576,7 +685,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set({ loading: false, error: msg });
-      get().pushToast(`读取本机 FVM 失败: ${msg}`, "error");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.readFvmFailed", { err: msg }),
+        "error"
+      );
     }
   },
 
@@ -588,7 +700,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       set({ releases: rel, loadingReleases: false });
     } catch (err) {
       set({ loadingReleases: false });
-      get().pushToast(`拉取官方发布列表失败: ${String(err)}`, "warning");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.fetchReleasesFailed", { err: String(err) }),
+        "warning"
+      );
     }
   },
 
@@ -607,12 +722,15 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
         doctorRunSeq: s.doctorRunSeq + 1,
       }));
       if (manual) {
-        get().pushToast("fvm doctor 诊断已刷新", "success");
+        get().pushToast(translate(get().resolvedLocale, "toast.doctorRefreshed"), "success");
       }
     } catch (err) {
       await minDelay;
       set({ loadingDoctor: false });
-      get().pushToast(`fvm doctor 执行失败: ${String(err)}`, "error");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.doctorFailed", { err: String(err) }),
+        "error"
+      );
     }
   },
 
@@ -659,7 +777,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
                 status: "CANCELLED",
                 exitCode: evt.exitCode,
                 durationMs: evt.durationMs,
-                lines: [...l.lines, "[已由用户中止]"],
+                lines: [...l.lines, translate(get().resolvedLocale, "console.cancelledByUser")],
               };
             }
             if (evt.kind === "error") {
@@ -682,7 +800,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       if (code === 0) {
         if (successToast) get().pushToast(successToast, "success");
       } else if (code !== -2) {
-        get().pushToast(`命令执行退出码 ${code}，请查看底部控制台日志`, "error");
+        get().pushToast(
+          translate(get().resolvedLocale, "toast.cmdExitError", { code }),
+          "error"
+        );
       }
       await get().refreshAll(true);
       return code;
@@ -695,7 +816,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
             : l
         ),
       }));
-      get().pushToast(`执行异常: ${String(err)}`, "error");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.cmdExecError", { err: String(err) }),
+        "error"
+      );
       return -1;
     }
   },
@@ -705,17 +829,24 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     set((s) => ({
       activeRequestIds: s.activeRequestIds.filter((id) => id !== requestId),
     }));
-    get().pushToast("已发送进程中止信号", "warning");
+    get().pushToast(translate(get().resolvedLocale, "toast.cancelSignalSent"), "warning");
   },
 
   bindProjectDialog: async () => {
-    const dir = await pickDirectoryDialog();
+    const dir = await pickDirectoryDialog(
+      translate(get().resolvedLocale, "dialog.pickProjectTitle")
+    );
     if (!dir) return;
     const nextExtra = Array.from(new Set([...get().extraProjects, dir]));
     saveExtraProjects(nextExtra);
     set({ extraProjects: nextExtra, selectedProjectId: dir, selectedFlavor: "__default__" });
     await get().refreshAll();
-    get().pushToast(`已加载项目目录: ${dir.split("/").pop()}`, "success");
+    get().pushToast(
+      translate(get().resolvedLocale, "toast.projectLoaded", {
+        name: dir.split("/").pop() ?? dir,
+      }),
+      "success"
+    );
   },
 
   removeExtraProject: async (path) => {
@@ -736,7 +867,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       pendingSdk ??
       (flavor === "__default__" ? proj.pinnedVersion : proj.flavors[flavor]);
     if (!targetVer) {
-      get().pushToast("请先在右侧选择一个目标 Flutter SDK 版本", "warning");
+      get().pushToast(translate(get().resolvedLocale, "toast.selectSdkFirst"), "warning");
       return;
     }
 
@@ -750,7 +881,11 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     await get().runFvmArgs(
       args,
       proj.path,
-      `${proj.name}${flavor !== "__default__" ? ` [${flavor}]` : ""} 已绑定至 ${targetVer}`
+      translate(get().resolvedLocale, "toast.projectBound", {
+        project: proj.name,
+        flavorPart: flavor !== "__default__" ? ` [${flavor}]` : "",
+        version: targetVer,
+      })
     );
     set({ pendingSdk: null });
   },
@@ -761,22 +896,38 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     const args = ["install", clean];
     if (options?.noSetup) args.push("--no-setup");
 
-    const code = await get().runFvmArgs(args, undefined, `Flutter ${clean} 安装完成`);
+    const code = await get().runFvmArgs(
+      args,
+      undefined,
+      translate(get().resolvedLocale, "toast.sdkInstalled", { version: clean })
+    );
     if (code === 0 && options?.setGlobal) {
       await get().setGlobalSdk(clean);
     }
   },
 
   removeSdk: async (version) => {
-    await get().runFvmArgs(["remove", version], undefined, `已移除缓存版本 ${version}`);
+    await get().runFvmArgs(
+      ["remove", version],
+      undefined,
+      translate(get().resolvedLocale, "toast.sdkRemoved", { version })
+    );
   },
 
   setGlobalSdk: async (version) => {
-    await get().runFvmArgs(["global", version], undefined, `全局默认 SDK 已设为 ${version}`);
+    await get().runFvmArgs(
+      ["global", version],
+      undefined,
+      translate(get().resolvedLocale, "toast.globalSet", { version })
+    );
   },
 
   unlinkGlobalSdk: async () => {
-    await get().runFvmArgs(["global", "--unlink"], undefined, "已取消全局默认 SDK");
+    await get().runFvmArgs(
+      ["global", "--unlink"],
+      undefined,
+      translate(get().resolvedLocale, "toast.globalUnlinked")
+    );
   },
 
   runPatchUpgrade: async (actions, label) => {
@@ -791,25 +942,29 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     await get().runFvmArgs(
       ["cleanup", "--remove-unused", "-y"],
       undefined,
-      "未引用 SDK 清理完成"
+      translate(get().resolvedLocale, "toast.cleanupDone")
     );
   },
 
   runDestroyCache: async () => {
-    await get().runFvmArgs(["destroy", "--force"], undefined, "已清空 FVM 全部缓存");
+    await get().runFvmArgs(
+      ["destroy", "--force"],
+      undefined,
+      translate(get().resolvedLocale, "toast.destroyDone")
+    );
   },
 
   runSpawnMatrix: async () => {
     const { spawnMode, spawnCommand, spawnTargets, spawnProjectId, snapshot } = get();
     const cmdTokens = spawnCommand.trim().split(/\s+/).filter(Boolean);
     if (!cmdTokens.length) {
-      get().pushToast("请输入要执行的命令参数（如 test / analyze）", "warning");
+      get().pushToast(translate(get().resolvedLocale, "toast.spawnNeedArgs"), "warning");
       return;
     }
 
     const targets = spawnMode === "exec" ? ["exec"] : spawnTargets;
     if (!targets.length) {
-      get().pushToast("请至少勾选一个执行目标", "warning");
+      get().pushToast(translate(get().resolvedLocale, "toast.spawnNeedTargets"), "warning");
       return;
     }
 
@@ -882,10 +1037,16 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
         }));
       });
       set({ spawnRunning: false, spawnRequestId: null });
-      get().pushToast(`并发矩阵执行完毕 (${tasks.length} 个轨道)`, "success");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.spawnFinished", { count: tasks.length }),
+        "success"
+      );
     } catch (err) {
       set({ spawnRunning: false, spawnRequestId: null });
-      get().pushToast(`并发执行异常: ${String(err)}`, "error");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.spawnError", { err: String(err) }),
+        "error"
+      );
     }
   },
 
@@ -894,21 +1055,29 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     if (!reqId) return;
     await cancelFvmRequest(reqId);
     set({ spawnRunning: false, spawnRequestId: null });
-    get().pushToast("已中止并发矩阵", "warning");
+    get().pushToast(translate(get().resolvedLocale, "toast.spawnCancelled"), "warning");
   },
 
   addFork: async (alias, url) => {
     const a = alias.trim();
     const u = url.trim();
     if (!a || !u) {
-      get().pushToast("请填写 Fork 别名和 Git URL", "warning");
+      get().pushToast(translate(get().resolvedLocale, "toast.forkNeedFields"), "warning");
       return;
     }
-    await get().runFvmArgs(["fork", "add", a, u], undefined, `已注册 Fork 别名 ${a}`);
+    await get().runFvmArgs(
+      ["fork", "add", a, u],
+      undefined,
+      translate(get().resolvedLocale, "toast.forkAdded", { alias: a })
+    );
   },
 
   removeFork: async (alias) => {
-    await get().runFvmArgs(["fork", "remove", alias], undefined, `已移除 Fork 别名 ${alias}`);
+    await get().runFvmArgs(
+      ["fork", "remove", alias],
+      undefined,
+      translate(get().resolvedLocale, "toast.forkRemoved", { alias })
+    );
   },
 
   saveGlobalConfig: async (cfg) => {
@@ -923,7 +1092,11 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       cfg.useGitCache ? "--use-git-cache" : "--no-use-git-cache",
       cfg.updateCheck ? "--update-check" : "--no-update-check",
     ];
-    await get().runFvmArgs(args, undefined, "全局 FVM 配置已更新");
+    await get().runFvmArgs(
+      args,
+      undefined,
+      translate(get().resolvedLocale, "toast.globalConfigUpdated")
+    );
   },
 
   fixPathInZshrc: async () => {
@@ -932,7 +1105,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       get().pushToast(msg, "success");
       await get().refreshAll(true);
     } catch (err) {
-      get().pushToast(`写入 ~/.zshrc 失败: ${String(err)}`, "error");
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.zshrcFailed", { err: String(err) }),
+        "error"
+      );
     }
   },
 }));

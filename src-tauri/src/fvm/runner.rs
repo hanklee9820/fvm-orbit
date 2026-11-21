@@ -201,7 +201,8 @@ fn extract_json_payload(raw: &str) -> Result<Value, String> {
         }
     }
     Err(format!(
-        "无法解析 FVM JSON 输出: {}",
+        "{}: {}",
+        crate::i18n::pick("无法解析 FVM JSON 输出", "Failed to parse FVM JSON output"),
         strip_ansi_codes(trimmed).chars().take(240).collect::<String>()
     ))
 }
@@ -211,15 +212,22 @@ pub async fn run_fvm_json(args: &[&str], cwd: Option<&str>) -> Result<Value, Str
     let output = build_fvm_cmd(&arg_vec, cwd)
         .output()
         .await
-        .map_err(|e| format!("无法执行 fvm ({}) : {e}", resolve_fvm_binary()))?;
+        .map_err(|e| {
+            format!(
+                "{} ({}): {e}",
+                crate::i18n::pick("无法执行 fvm", "Failed to execute fvm"),
+                resolve_fvm_binary()
+            )
+        })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = strip_ansi_codes(&String::from_utf8_lossy(&output.stderr));
 
     if !output.status.success() && stdout.trim().is_empty() {
         return Err(format!(
-            "fvm {} 执行失败 (exit {:?}): {}",
+            "fvm {} {} (exit {:?}): {}",
             args.join(" "),
+            crate::i18n::pick("执行失败", "failed"),
             output.status.code(),
             stderr.trim()
         ));
@@ -745,7 +753,12 @@ pub async fn run_doctor(cwd: Option<String>) -> Result<DoctorOutput, String> {
     let output = build_fvm_cmd(&args, cwd.as_deref())
         .output()
         .await
-        .map_err(|e| format!("无法执行 fvm doctor: {e}"))?;
+        .map_err(|e| {
+            format!(
+                "{}: {e}",
+                crate::i18n::pick("无法执行 fvm doctor", "Failed to run fvm doctor")
+            )
+        })?;
     let stdout = strip_ansi_codes(&String::from_utf8_lossy(&output.stdout));
     let stderr = strip_ansi_codes(&String::from_utf8_lossy(&output.stderr));
     let combined = if stderr.trim().is_empty() {
@@ -784,7 +797,10 @@ pub async fn stream_fvm_command(
         Ok(c) => c,
         Err(e) => {
             cancel_registry.remove(&request_id);
-            let msg = format!("启动进程失败: {e}");
+            let msg = format!(
+                "{}: {e}",
+                crate::i18n::pick("启动进程失败", "Failed to spawn process")
+            );
             let _ = on_event.send(CliStreamEvent {
                 request_id: request_id.clone(),
                 kind: "error".into(),
@@ -901,7 +917,10 @@ pub async fn run_spawn_matrix(
                         task_id: task.id,
                         label: task.label,
                         kind: "error".into(),
-                        line: Some(format!("启动失败: {e}")),
+                        line: Some(format!(
+                            "{}: {e}",
+                            crate::i18n::pick("启动失败", "Failed to launch")
+                        )),
                         exit_code: Some(-1),
                         duration_ms: Some(started.elapsed().as_millis() as u64),
                     });

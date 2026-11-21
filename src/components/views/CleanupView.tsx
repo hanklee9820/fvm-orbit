@@ -1,5 +1,6 @@
 import { AlertTriangle, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useI18n } from "../../i18n/useI18n";
 import { formatBytes, useFvmStore } from "../../store/useFvmStore";
 
 const CHART_VARS = [
@@ -12,6 +13,7 @@ const CHART_VARS = [
 ];
 
 export function CleanupView() {
+  const { t } = useI18n();
   const {
     snapshot,
     runPatchUpgrade,
@@ -39,10 +41,13 @@ export function CleanupView() {
       <div className="p-4 rounded-2xl bg-[var(--card)] border border-[var(--border)] space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold">FVM 磁盘占用透视</h2>
+            <h2 className="text-sm font-semibold">{t("cleanup.diskTitle")}</h2>
             <p className="text-xs text-[var(--muted-foreground)]">
-              基于 <code className="font-mono">fvm api list</code>、
-              <code className="font-mono">fvm api cleanup</code> 与本地目录体积实时核算
+              {t("cleanup.diskSubBeforeFirst")}{" "}
+              <code className="font-mono">fvm api list</code>
+              {t("cleanup.diskSubBetween")}{" "}
+              <code className="font-mono">fvm api cleanup</code>
+              {t("cleanup.diskSubAfterSecond")}
             </p>
           </div>
           <div className="text-right">
@@ -50,7 +55,7 @@ export function CleanupView() {
               {formatBytes(totalBytes)}
             </div>
             <div className="text-xs text-[var(--muted-foreground)]">
-              含 Git 共享仓库 {formatBytes(gitCacheBytes)}
+              {t("cleanup.includesGitCache", { size: formatBytes(gitCacheBytes) })}
             </div>
           </div>
         </div>
@@ -104,7 +109,7 @@ export function CleanupView() {
           </>
         ) : (
           <div className="text-xs text-[var(--muted-foreground)] py-2">
-            当前 FVM 缓存目录占用 0 B。
+            {t("cleanup.diskEmpty")}
           </div>
         )}
       </div>
@@ -113,20 +118,18 @@ export function CleanupView() {
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">同系补丁版本收拢建议 (Patch Consolidation)</h3>
-            <p className="text-xs text-[var(--muted-foreground)]">
-              FVM 4.3 独有能力：检测同一主次版本线内已缓存的最新补丁，零下载迁移项目并腾出旧补丁
-            </p>
+            <h3 className="text-sm font-semibold">{t("cleanup.patchTitle")}</h3>
+            <p className="text-xs text-[var(--muted-foreground)]">{t("cleanup.patchSubtitle")}</p>
           </div>
           <span className="px-2 py-0.5 rounded-md text-xs font-mono bg-[var(--warning)]/15 text-[var(--warning)] shrink-0">
-            {cleanup.upgrades.length} 项建议
+            {t("cleanup.patchBadgeCount", { count: cleanup.upgrades.length })}
           </span>
         </div>
 
         <div className="p-4 space-y-3">
           {cleanup.upgrades.length === 0 ? (
             <div className="text-xs text-[var(--muted-foreground)] py-3 text-center">
-              所有已追踪项目均已对齐同系最新缓存补丁。
+              {t("cleanup.patchEmpty")}
             </div>
           ) : (
             cleanup.upgrades.map((u) => (
@@ -162,13 +165,16 @@ export function CleanupView() {
                   onClick={() =>
                     void runPatchUpgrade(
                       u.actions,
-                      `已将项目收拢升级至 ${u.toVersion}，旧版本 ${u.fromVersion} 可安全清理`
+                      t("cleanup.patchMigrateToast", {
+                        to: u.toVersion,
+                        from: u.fromVersion,
+                      })
                     )
                   }
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90 shrink-0"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>一键迁移至 {u.toVersion}</span>
+                  <span>{t("cleanup.patchMigrateBtn", { version: u.toVersion })}</span>
                 </button>
               </div>
             ))
@@ -180,10 +186,10 @@ export function CleanupView() {
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">未引用 SDK 清理池 (Unused vs Removable)</h3>
+            <h3 className="text-sm font-semibold">{t("cleanup.poolTitle")}</h3>
             <p className="text-xs text-[var(--muted-foreground)]">
-              FVM 会自动保护作为升级目标的未引用 SDK，仅清理安全可删的{" "}
-              <code className="font-mono">removable</code> 子集
+              {t("cleanup.poolSubBeforeCode")}{" "}
+              <code className="font-mono">removable</code> {t("cleanup.poolSubAfterCode")}
             </p>
           </div>
           <button
@@ -196,14 +202,14 @@ export function CleanupView() {
                 : "bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60 cursor-not-allowed"
             }`}
           >
-            一键清理可移除 SDK ({formatBytes(removableBytes)})
+            {t("cleanup.cleanRemovableBtn", { size: formatBytes(removableBytes) })}
           </button>
         </div>
 
         <div className="p-4">
           {cleanup.unused.length === 0 ? (
             <div className="text-xs text-[var(--muted-foreground)] py-3 text-center">
-              当前没有未引用的闲置 SDK。
+              {t("cleanup.poolEmpty")}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -222,11 +228,11 @@ export function CleanupView() {
                         <span className="font-mono text-xs font-semibold">{name}</span>
                         {isProtected ? (
                           <span className="px-2 py-0.5 rounded text-xs bg-[var(--primary)]/15 text-[var(--primary)]">
-                            受保护（升级目标）
+                            {t("cleanup.protectedBadge")}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-xs bg-[var(--error)]/15 text-[var(--error)]">
-                            可安全清理
+                            {t("cleanup.safeRemoveBadge")}
                           </span>
                         )}
                       </div>
@@ -243,7 +249,7 @@ export function CleanupView() {
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] text-xs cursor-pointer hover:bg-[var(--error)]/10"
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>移除</span>
+                        <span>{t("common.remove")}</span>
                       </button>
                     )}
                   </div>
@@ -260,11 +266,12 @@ export function CleanupView() {
           <AlertTriangle className="w-4 h-4 text-[var(--error)] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <div className="text-xs font-semibold text-[var(--error)]">
-              高危区 · 清空全部 FVM 缓存 (fvm destroy)
+              {t("cleanup.dangerTitle")}
             </div>
             <div className="text-xs text-[var(--muted-foreground)]">
-              永久删除 <code className="font-mono">{context.versionsCachePath}</code>{" "}
-              下的全部缓存 SDK，需要重新下载。
+              {t("cleanup.dangerSubBeforePath")}{" "}
+              <code className="font-mono">{context.versionsCachePath}</code>
+              {t("cleanup.dangerSubAfterPath")}
             </div>
           </div>
         </div>
@@ -277,7 +284,7 @@ export function CleanupView() {
                 onClick={() => setConfirmDestroy(false)}
                 className="px-3 py-1.5 rounded-lg bg-[var(--secondary)] text-xs cursor-pointer"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -287,7 +294,7 @@ export function CleanupView() {
                 }}
                 className="px-3.5 py-1.5 rounded-lg bg-[var(--error)] text-white text-xs font-semibold cursor-pointer"
               >
-                确认执行 fvm destroy --force
+                {t("cleanup.dangerConfirmBtn")}
               </button>
             </>
           ) : (

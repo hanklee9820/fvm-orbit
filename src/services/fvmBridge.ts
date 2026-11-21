@@ -5,6 +5,8 @@ import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
 import type {
   CliStreamEvent,
   DoctorOutput,
+  LanguagePreference,
+  LanguageState,
   ProxySettings,
   ProxyTestResult,
   ReleasesResponse,
@@ -107,12 +109,20 @@ export async function testProxyConnectivity(
   });
 }
 
-export async function pickDirectoryDialog(): Promise<string | null> {
+export async function fetchAppLanguage(): Promise<LanguageState> {
+  return invoke<LanguageState>("get_app_language");
+}
+
+export async function saveAppLanguage(language: LanguagePreference): Promise<LanguageState> {
+  return invoke<LanguageState>("set_app_language", { language });
+}
+
+export async function pickDirectoryDialog(title: string): Promise<string | null> {
   if (!isTauriRuntime()) return null;
   const selected = await openDialog({
     directory: true,
     multiple: false,
-    title: "选择 Flutter 项目根目录",
+    title,
   });
   if (typeof selected === "string") return selected;
   return null;

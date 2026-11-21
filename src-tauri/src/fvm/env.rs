@@ -125,18 +125,29 @@ pub fn check_path_priority(global_bin_path: &str) -> (Option<String>, bool) {
 
 /// Safely appends `export PATH="$HOME/fvm/default/bin:$PATH"` to ~/.zshrc (idempotent with backup).
 pub fn append_fvm_path_to_zshrc() -> Result<String, String> {
-    let home = dirs::home_dir().ok_or_else(|| "无法定位用户主目录".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| {
+        crate::i18n::pick("无法定位用户主目录", "Could not locate user home directory").to_string()
+    })?;
     let zshrc = home.join(".zshrc");
     let export_line = r#"export PATH="$HOME/fvm/default/bin:$PATH""#;
 
     let existing = if zshrc.exists() {
-        std::fs::read_to_string(&zshrc).map_err(|e| format!("读取 ~/.zshrc 失败: {e}"))?
+        std::fs::read_to_string(&zshrc).map_err(|e| {
+            format!(
+                "{}: {e}",
+                crate::i18n::pick("读取 ~/.zshrc 失败", "Failed to read ~/.zshrc")
+            )
+        })?
     } else {
         String::new()
     };
 
     if existing.contains("fvm/default/bin") {
-        return Ok("~/.zshrc 中已包含 fvm/default/bin 配置，无需重复添加。请重启终端或执行 source ~/.zshrc。".to_string());
+        return Ok(crate::i18n::pick(
+            "~/.zshrc 中已包含 fvm/default/bin 配置，无需重复添加。请重启终端或执行 source ~/.zshrc。",
+            "~/.zshrc already contains fvm/default/bin. Restart your terminal or run source ~/.zshrc.",
+        )
+        .to_string());
     }
 
     // Create a clean backup before modifying
@@ -153,6 +164,15 @@ pub fn append_fvm_path_to_zshrc() -> Result<String, String> {
     updated.push_str(export_line);
     updated.push('\n');
 
-    std::fs::write(&zshrc, updated).map_err(|e| format!("写入 ~/.zshrc 失败: {e}"))?;
-    Ok("已备份 ~/.zshrc.fvm-orbit.bak 并写入 PATH 优先级配置，重新打开终端或运行 source ~/.zshrc 即生效。".to_string())
+    std::fs::write(&zshrc, updated).map_err(|e| {
+        format!(
+            "{}: {e}",
+            crate::i18n::pick("写入 ~/.zshrc 失败", "Failed to write ~/.zshrc")
+        )
+    })?;
+    Ok(crate::i18n::pick(
+        "已备份 ~/.zshrc.fvm-orbit.bak 并写入 PATH 优先级配置，重新打开终端或运行 source ~/.zshrc 即生效。",
+        "Backed up ~/.zshrc.fvm-orbit.bak and updated PATH priority. Restart your terminal or run source ~/.zshrc to apply.",
+    )
+    .to_string())
 }

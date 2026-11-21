@@ -1,9 +1,16 @@
 export type TabId = "topology" | "releases" | "cleanup" | "spawn" | "doctor" | "config";
 export type ThemeMode = "system" | "dark" | "light";
 export type AppIconStyle = "dark" | "light" | "auto";
-export type SettingsTabId = "proxy" | "appearance";
+export type LanguagePreference = "system" | "zh" | "en";
+export type Locale = "zh" | "en";
+export type SettingsTabId = "proxy" | "appearance" | "language";
 export type ProxyMode = "direct" | "system" | "custom";
 export type ProxyProtocol = "http" | "https" | "socks5";
+
+export interface LanguageState {
+  preference: LanguagePreference;
+  resolved: Locale;
+}
 
 export interface ProxySettings {
   mode: ProxyMode;

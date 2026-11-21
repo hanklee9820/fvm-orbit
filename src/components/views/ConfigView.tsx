@@ -1,8 +1,10 @@
 import { Download, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useI18n } from "../../i18n/useI18n";
 import { useFvmStore } from "../../store/useFvmStore";
 
 export function ConfigView() {
+  const { t } = useI18n();
   const {
     snapshot,
     addFork,
@@ -54,9 +56,9 @@ export function ConfigView() {
       {/* Custom Fork Registry */}
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">
-          <h2 className="text-sm font-semibold">自定义 Flutter Fork 别名仓库 (fvm fork)</h2>
+          <h2 className="text-sm font-semibold">{t("config.forkTitle")}</h2>
           <p className="text-xs text-[var(--muted-foreground)]">
-            适用于鸿蒙版 Flutter、公司内网定制引擎或社区分支，注册后可直接{" "}
+            {t("config.forkSubBeforeCode")}{" "}
             <code className="font-mono">fvm use alias/stable</code>
           </p>
         </div>
@@ -67,7 +69,7 @@ export function ConfigView() {
               type="text"
               value={forkAlias}
               onChange={(e) => setForkAlias(e.target.value)}
-              placeholder="别名（如 myco / ohos）"
+              placeholder={t("config.forkAliasPlaceholder")}
               className="w-44 px-3 py-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-xs font-mono outline-none focus:border-[var(--primary)]"
             />
             <input
@@ -77,7 +79,7 @@ export function ConfigView() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAddFork();
               }}
-              placeholder="Git 仓库地址（https://github.com/myco/flutter.git）"
+              placeholder={t("config.forkUrlPlaceholder")}
               className="flex-1 min-w-60 px-3 py-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-xs font-mono outline-none focus:border-[var(--primary)]"
             />
             <button
@@ -86,13 +88,13 @@ export function ConfigView() {
               className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>注册 Fork</span>
+              <span>{t("config.addForkBtn")}</span>
             </button>
           </div>
 
           {forks.length === 0 ? (
             <div className="text-xs text-[var(--muted-foreground)] py-3 text-center">
-              当前未注册任何自定义 Fork 别名。
+              {t("config.noForksEmpty")}
             </div>
           ) : (
             <div className="space-y-2">
@@ -116,7 +118,7 @@ export function ConfigView() {
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs font-mono cursor-pointer"
                     >
                       <Download className="w-3 h-3" />
-                      <span>安装 {fk.name}/stable</span>
+                      <span>{t("config.installForkBtn", { name: fk.name })}</span>
                     </button>
                     <button
                       type="button"
@@ -124,7 +126,7 @@ export function ConfigView() {
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] text-xs cursor-pointer hover:bg-[var(--error)]/10"
                     >
                       <Trash2 className="w-3 h-3" />
-                      <span>删除</span>
+                      <span>{t("common.delete")}</span>
                     </button>
                   </div>
                 </div>
@@ -138,7 +140,7 @@ export function ConfigView() {
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold">全局 FVM 引擎配置 (fvm config)</h2>
+            <h2 className="text-sm font-semibold">{t("config.globalTitle")}</h2>
             <p className="text-xs text-[var(--muted-foreground)] font-mono">{appConfigPath}</p>
           </div>
           <button
@@ -155,7 +157,7 @@ export function ConfigView() {
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90"
           >
             <Save className="w-3.5 h-3.5" />
-            <span>应用全局配置</span>
+            <span>{t("config.applyConfigBtn")}</span>
           </button>
         </div>
 
@@ -163,7 +165,7 @@ export function ConfigView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="space-y-1.5 block">
               <span className="text-[var(--muted-foreground)] font-medium">
-                SDK 缓存路径 (--cache-path)
+                {t("config.cachePathLabel")}
               </span>
               <input
                 type="text"
@@ -174,7 +176,7 @@ export function ConfigView() {
             </label>
             <label className="space-y-1.5 block">
               <span className="text-[var(--muted-foreground)] font-medium">
-                Git 参考缓存路径 (--git-cache-path)
+                {t("config.gitCachePathLabel")}
               </span>
               <input
                 type="text"
@@ -188,7 +190,7 @@ export function ConfigView() {
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[var(--muted-foreground)] font-medium">
-                Flutter Git 源地址 (--flutter-url)
+                {t("config.flutterUrlLabel")}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -196,7 +198,7 @@ export function ConfigView() {
                   onClick={() => setFlutterUrl("https://github.com/flutter/flutter.git")}
                   className="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] cursor-pointer hover:opacity-90"
                 >
-                  官方 GitHub
+                  {t("config.presetGithub")}
                 </button>
                 <button
                   type="button"
@@ -205,7 +207,7 @@ export function ConfigView() {
                   }
                   className="px-2 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] cursor-pointer hover:opacity-90"
                 >
-                  清华镜像
+                  {t("config.presetTsinghua")}
                 </button>
               </div>
             </div>
@@ -220,10 +222,8 @@ export function ConfigView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
             <label className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-center justify-between cursor-pointer select-none">
               <div>
-                <div className="font-semibold">启用 Git Reference Cache</div>
-                <div className="text-[var(--muted-foreground)]">
-                  复用本地 Git 对象，多版本安装提速 3-5x
-                </div>
+                <div className="font-semibold">{t("config.useGitCacheTitle")}</div>
+                <div className="text-[var(--muted-foreground)]">{t("config.useGitCacheDesc")}</div>
               </div>
               <input
                 type="checkbox"
@@ -235,8 +235,10 @@ export function ConfigView() {
 
             <label className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] flex items-center justify-between cursor-pointer select-none">
               <div>
-                <div className="font-semibold">自动检查 FVM 更新</div>
-                <div className="text-[var(--muted-foreground)]">对应 --[no-]update-check</div>
+                <div className="font-semibold">{t("config.updateCheckTitle")}</div>
+                <div className="text-[var(--muted-foreground)]">
+                  {t("config.updateCheckDesc")}
+                </div>
               </div>
               <input
                 type="checkbox"

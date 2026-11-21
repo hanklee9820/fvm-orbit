@@ -2,6 +2,7 @@ mod app_icon;
 mod app_menu;
 mod commands;
 mod fvm;
+mod i18n;
 mod proxy;
 mod tray;
 
@@ -30,6 +31,7 @@ pub fn run() {
         .manage(app_state)
         .setup(|app| {
             let handle = app.handle().clone();
+            i18n::init_language(&handle);
             app_icon::init_app_icon(&handle);
             proxy::init_proxy_settings(&handle);
             if let Err(err) = app_menu::init_app_menu(&handle) {
@@ -54,6 +56,8 @@ pub fn run() {
             commands::set_proxy_settings,
             commands::detect_system_proxy,
             commands::test_proxy_connectivity,
+            commands::get_app_language,
+            commands::set_app_language,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FVM Orbit");
