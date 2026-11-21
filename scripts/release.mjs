@@ -14,11 +14,12 @@ const cargoTomlPath = path.join(rootDir, "src-tauri", "Cargo.toml");
 const cargoLockPath = path.join(rootDir, "src-tauri", "Cargo.lock");
 
 function runGit(args, options = {}) {
-  return execFileSync("git", args, {
+  const out = execFileSync("git", args, {
     cwd: rootDir,
     encoding: "utf8",
     stdio: options.stdio ?? "pipe",
-  }).trim();
+  });
+  return typeof out === "string" ? out.trim() : "";
 }
 
 function parseSemver(ver) {
