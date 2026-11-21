@@ -1,4 +1,5 @@
 mod app_icon;
+mod app_menu;
 mod commands;
 mod fvm;
 mod proxy;
@@ -31,6 +32,9 @@ pub fn run() {
             let handle = app.handle().clone();
             app_icon::init_app_icon(&handle);
             proxy::init_proxy_settings(&handle);
+            if let Err(err) = app_menu::init_app_menu(&handle) {
+                eprintln!("Warning: failed to initialize macOS app menu: {err}");
+            }
             if let Err(err) = tray::init_tray(&handle) {
                 eprintln!("Warning: failed to initialize macOS tray icon: {err}");
             }

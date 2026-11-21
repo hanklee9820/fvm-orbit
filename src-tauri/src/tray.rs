@@ -59,6 +59,7 @@ pub fn build_tray_menu(
     };
 
     let refresh_item = MenuItem::with_id(app, "tray_refresh", "刷新本地 FVM 状态", true, None::<&str>)?;
+    let settings_item = MenuItem::with_id(app, "tray_settings", "设置…", true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "tray_quit", "退出 FVM Orbit", true, None::<&str>)?;
 
@@ -75,6 +76,7 @@ pub fn build_tray_menu(
             &nav_cleanup,
             &nav_doctor,
             &refresh_item,
+            &settings_item,
             &sep3,
             &quit_item,
         ],
@@ -105,6 +107,9 @@ pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
                 show_main_window(app, Some("doctor"));
             } else if id == "tray_refresh" {
                 let _ = app.emit("fvm://refresh", ());
+            } else if id == "tray_settings" {
+                show_main_window(app, None);
+                let _ = app.emit("fvm://open-settings", ());
             } else if id == "tray_quit" {
                 app.exit(0);
             } else if let Some(ver) = id.strip_prefix("set_global::") {
