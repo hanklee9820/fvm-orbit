@@ -71,11 +71,24 @@ export function MenuBarPopover() {
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[var(--muted-foreground)]">
-            <span>全局默认 SDK (fvm global)</span>
-            <span className="font-mono font-semibold text-[var(--primary)]">
-              {snapshot.context.globalVersion ?? "未设置"}
-            </span>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[var(--muted-foreground)]">全局默认 SDK (fvm global)</span>
+            {snapshot.context.globalVersion ? (
+              <span className="font-mono font-semibold text-[var(--foreground)]">
+                {snapshot.context.globalVersion}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenubarOpen(false);
+                  setActiveTab("releases");
+                }}
+                className="font-mono font-semibold text-[var(--primary)] hover:underline cursor-pointer"
+              >
+                去设置
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap gap-1.5">
             {cached.length === 0 ? (

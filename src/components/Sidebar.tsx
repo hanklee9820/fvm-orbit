@@ -1,12 +1,14 @@
 import {
   Activity,
   Box,
+  Check,
+  ChevronRight,
   FlaskConical,
   GitFork,
   Network,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatBytes, useFvmStore } from "../store/useFvmStore";
 import type { TabId } from "../types/fvm";
 
@@ -19,8 +21,29 @@ interface HoveredTip {
 }
 
 export function Sidebar() {
-  const { activeTab, setActiveTab, snapshot } = useFvmStore();
+  const { activeTab, setActiveTab, snapshot, setGlobalSdk, unlinkGlobalSdk, pushToast } =
+    useFvmStore();
   const [hoveredTip, setHoveredTip] = useState<HoveredTip | null>(null);
+  const [globalPickerOpen, setGlobalPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!globalPickerOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setGlobalPickerOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setGlobalPickerOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [globalPickerOpen]);
 
   const projectCount = snapshot?.projects.length ?? 0;
   const sdkCount = snapshot?.versions.length ?? 0;
@@ -202,16 +225,89 @@ export function Sidebar() {
 
       {/* Bottom Cache & Global Status Card */}
       <div className="space-y-3 pt-3 border-t border-[var(--border)]">
-        <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-2">
+        <div
+          ref={pickerRef}
+          className="relative p-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-2"
+        >
           <div className="flex items-center justify-between text-xs gap-2">
             <span className="text-[var(--muted-foreground)] shrink-0">全局默认 SDK</span>
-            <span
-              title={globalSdk ?? "未设置"}
-              className="font-mono font-semibold text-[var(--primary)] truncate max-w-[100px]"
+            <button
+              type="button"
+              onClick={() => {
+                const cached = snapshot?.versions ?? [];
+                if (cached.length === 0) {
+                  setActiveTab("releases");
+                  pushToast("请先安装一个 Flutter SDK，再设为全局默认", "info");
+                } else {
+                  setGlobalPickerOpen((v) => !v);
+                }
+              }}
+              title={
+                globalSdk
+                  ? `当前全局默认：${globalSdk}（点击快速切换）`
+                  : (snapshot?.versions.length ?? 0) > 0
+                    ? "点击从已缓存 SDK 中选择全局默认版本"
+                    : "点击前往版本宇宙安装并设置全局默认 SDK"
+              }
+              className="inline-flex items-center gap-0.5 font-mono font-semibold text-[var(--primary)] hover:underline truncate max-w-[112px] cursor-pointer"
             >
-              {globalSdk ?? "未设置"}
-            </span>
+              <span className="truncate">{globalSdk ?? "去设置"}</span>
+              <ChevronRight className="w-3 h-3 shrink-0 opacity-80" />
+            </button>
           </div>
+
+          {/* Inline Global SDK Quick Picker Popover */}
+          {globalPickerOpen && (
+            <div className="absolute left-0 right-0 bottom-full mb-2 z-50 rounded-xl bg-[var(--card)] border border-[var(--border)] glass-elevated p-2 space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-[var(--muted-foreground)] flex items-center justify-between">
+                <span>切换全局默认 SDK</span>
+                {globalSdk && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGlobalPickerOpen(false);
+                      void unlinkGlobalSdk();
+                    }}
+                    className="text-[var(--error)] hover:underline font-normal cursor-pointer"
+                  >
+                    取消全局
+                  </button>
+                )}
+              </div>
+              <div className="max-h-44 overflow-y-auto scroll-thin space-y-0.5">
+                {(snapshot?.versions ?? []).map((v) => (
+                  <button
+                    key={v.name}
+                    type="button"
+                    onClick={() => {
+                      setGlobalPickerOpen(false);
+                      if (!v.isGlobal) void setGlobalSdk(v.name);
+                    }}
+                    className={`w-full px-2 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between gap-2 cursor-pointer transition ${
+                      v.isGlobal
+                        ? "bg-[var(--primary)]/15 text-[var(--primary)] font-semibold"
+                        : "hover:bg-[var(--sidebar)] text-[var(--foreground)]"
+                    }`}
+                  >
+                    <span className="truncate">{v.name}</span>
+                    {v.isGlobal && <Check className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+              <div className="pt-1 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGlobalPickerOpen(false);
+                    setActiveTab("releases");
+                  }}
+                  className="w-full px-2 py-1 rounded-lg text-xs text-[var(--primary)] hover:bg-[var(--sidebar)] text-left cursor-pointer"
+                >
+                  前往版本宇宙安装更多…
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between text-xs">
             <span className="text-[var(--muted-foreground)]">本地缓存占用</span>
             <span className="font-mono tabular-nums font-medium">
