@@ -49,18 +49,26 @@
 <table>
   <tr>
     <td width="50%">
-      <img src="docs/images/app-topology-light.png" alt="FVM Orbit 浅色模式" />
-      <p align="center"><sub>浅色模式 · 项目 ↔ SDK 实时引力连线与 Flavor 管理</sub></p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-releases-dark.png" />
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/app-releases-light.png" />
+        <img src="docs/images/app-releases-dark.png" alt="FVM Orbit 版本宇宙" />
+      </picture>
+      <p align="center"><sub>版本宇宙 · 官方发布库、Commit Hash 与自定义 Fork 直装</sub></p>
     </td>
     <td width="50%">
-      <img src="docs/images/app-releases-dark.png" alt="FVM Orbit 版本宇宙" />
-      <p align="center"><sub>版本宇宙 · 官方发布库、Commit Hash 与自定义 Fork 直装</sub></p>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-cleanup-dark.png" />
+        <source media="(prefers-color-scheme: light)" srcset="docs/images/app-cleanup-light.png" />
+        <img src="docs/images/app-cleanup-dark.png" alt="FVM Orbit 瘦身雷达" />
+      </picture>
+      <p align="center"><sub>瘦身雷达 · 磁盘占用透视、同系补丁零下载收拢与闲置清理</sub></p>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <img src="docs/images/app-cleanup-dark.png" alt="FVM Orbit 瘦身雷达" />
-      <p align="center"><sub>瘦身雷达 · 磁盘占用透视、同系补丁零下载收拢与闲置清理</sub></p>
+      <img src="docs/images/app-topology-light.png" alt="FVM Orbit 浅色模式" />
+      <p align="center"><sub>浅色模式 · 随 macOS 外观自动适配</sub></p>
     </td>
     <td width="50%" valign="middle">
       <div align="center">

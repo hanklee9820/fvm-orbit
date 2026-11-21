@@ -508,8 +508,7 @@
 
         <div id="preview">
           <div class="showcase-tabs" role="tablist" aria-label="应用界面切换">
-            <button type="button" class="showcase-tab active" data-shot="topology-dark">引力拓扑台（深色）</button>
-            <button type="button" class="showcase-tab" data-shot="topology-light">引力拓扑台（浅色）</button>
+            <button type="button" class="showcase-tab active" data-shot="topology">引力拓扑台</button>
             <button type="button" class="showcase-tab" data-shot="releases">版本宇宙</button>
             <button type="button" class="showcase-tab" data-shot="cleanup">瘦身雷达</button>
           </div>
@@ -723,9 +722,44 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
       let mode = localStorage.getItem(STORAGE_KEY);
       if (!order.includes(mode)) mode = "system";
 
+      let currentShot = "topology";
+      const shots = {
+        topology: {
+          dark: "images/app-topology-dark.png",
+          light: "images/app-topology-light.png",
+          desc: "项目 ↔ SDK 实时 SVG 引力拓扑连线、多 Flavor 槽位绑定、.fvmrc 实时预览与底部可拖拽透明 CLI 控制台。",
+          cmd: "fvm api context & list & project",
+        },
+        releases: {
+          dark: "images/app-releases-dark.png",
+          light: "images/app-releases-light.png",
+          desc: "实时对接 fvm api releases：四大发布渠道、配套 Dart SDK 检索、Commit Hash 与自定义 Fork 一键直装。",
+          cmd: "fvm api releases --compress",
+        },
+        cleanup: {
+          dark: "images/app-cleanup-dark.png",
+          light: "images/app-cleanup-light.png",
+          desc: "精确核算每个缓存 SDK 与 cache.git 磁盘占比，一键完成同系小版本补丁零下载收拢与闲置清理。",
+          cmd: "fvm cleanup --remove-unused -y",
+        },
+      };
+
+      const img = document.getElementById("shot-img");
+      const desc = document.getElementById("shot-desc");
+      const cmd = document.getElementById("shot-cmd");
+
       function resolveTheme(m) {
         if (m === "light" || m === "dark") return m;
         return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      function renderShot() {
+        const eff = resolveTheme(mode);
+        const s = shots[currentShot];
+        if (!s) return;
+        img.src = eff === "light" ? s.light : s.dark;
+        desc.textContent = s.desc;
+        cmd.textContent = s.cmd;
       }
 
       function applyTheme(m) {
@@ -733,6 +767,7 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
         document.documentElement.setAttribute("data-theme", eff);
         document.getElementById("theme-label").textContent = labels[m];
         document.getElementById("nav-logo").src = eff === "light" ? "images/icon-light.svg" : "images/icon.svg";
+        renderShot();
       }
 
       applyTheme(mode);
@@ -746,43 +781,12 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
         applyTheme(mode);
       });
 
-      // Screenshot showcase tabs
-      const shots = {
-        "topology-dark": {
-          src: "images/app-topology-dark.png",
-          desc: "项目 ↔ SDK 实时 SVG 引力拓扑连线、多 Flavor 槽位绑定、.fvmrc 实时预览与底部可拖拽透明 CLI 控制台。",
-          cmd: "fvm api context & list & project",
-        },
-        "topology-light": {
-          src: "images/app-topology-light.png",
-          desc: "跟随 macOS 外观自动切换浅色主题，清晰高对比呈现项目绑定、全局 SDK 快捷入口与实时日志流。",
-          cmd: "fvm use 3.50.1 --flavor staging",
-        },
-        releases: {
-          src: "images/app-releases-dark.png",
-          desc: "实时对接 fvm api releases：四大发布渠道、配套 Dart SDK 检索、Commit Hash 与自定义 Fork 一键直装。",
-          cmd: "fvm api releases --compress",
-        },
-        cleanup: {
-          src: "images/app-cleanup-dark.png",
-          desc: "精确核算每个缓存 SDK 与 cache.git 磁盘占比，一键完成同系小版本补丁零下载收拢与闲置清理。",
-          cmd: "fvm cleanup --remove-unused -y",
-        },
-      };
-
-      const img = document.getElementById("shot-img");
-      const desc = document.getElementById("shot-desc");
-      const cmd = document.getElementById("shot-cmd");
       document.querySelectorAll(".showcase-tab").forEach((btn) => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".showcase-tab").forEach((b) => b.classList.remove("active"));
           btn.classList.add("active");
-          const s = shots[btn.dataset.shot];
-          if (s) {
-            img.src = s.src;
-            desc.textContent = s.desc;
-            cmd.textContent = s.cmd;
-          }
+          currentShot = btn.dataset.shot || "topology";
+          renderShot();
         });
       });
 
