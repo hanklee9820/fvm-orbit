@@ -2,20 +2,84 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Release tag (e.g. v0.1.0)"
-        required: false
-        default: "v0.1.0"
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_or_get.outputs.release_id }}
+      tag_name: ${{ steps.create_or_get.outputs.tag_name }}
+      version: ${{ steps.create_or_get.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create or get GitHub Release
+        id: create_or_get
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const conf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+            const version = conf.version;
+            const tag = `v${version}`;
+            const releaseName = `FVM Orbit v${version}`;
+            const body = [
+              `## FVM Orbit v${version}`,
+              "",
+              "Native desktop spatial cockpit & menu bar / system tray switcher for **[btwld/fvm](https://github.com/btwld/fvm)** (built with Tauri v2 + Rust + React 19).",
+              "",
+              "### Downloads / 安装包下载",
+              "",
+              `- **macOS (Apple Silicon / M1–M4)**: \`FVM.Orbit_${version}_aarch64.dmg\` / \`FVM.Orbit_aarch64.app.tar.gz\``,
+              `- **macOS (Intel x86_64)**: \`FVM.Orbit_${version}_x64.dmg\` / \`FVM.Orbit_x64.app.tar.gz\``,
+              `- **Windows (x64)**: \`FVM.Orbit_${version}_x64-setup.exe\` / \`FVM.Orbit_${version}_x64_en-US.msi\``,
+              `- **Windows (ARM64)**: \`FVM.Orbit_${version}_arm64-setup.exe\``,
+            ].join("\n");
+
+            const { owner, repo } = context.repo;
+            let release;
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              release = existing.data;
+              console.log(`Found existing release for ${tag}: id=${release.id}`);
+            } catch (err) {
+              if (err.status === 404) {
+                const created = await github.rest.repos.createRelease({
+                  owner,
+                  repo,
+                  tag_name: tag,
+                  target_commitish: context.sha,
+                  name: releaseName,
+                  body,
+                  draft: false,
+                  prerelease: false,
+                });
+                release = created.data;
+                console.log(`Created release for ${tag}: id=${release.id}`);
+              } else {
+                throw err;
+              }
+            }
+
+            core.setOutput("release_id", String(release.id));
+            core.setOutput("tag_name", tag);
+            core.setOutput("version", version);
+
+  build-tauri:
+    needs: prepare-release
     strategy:
       fail-fast: false
       matrix:
@@ -68,24 +132,10 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build and publish Tauri release assets
+      - name: Build and upload Tauri bundles to GitHub Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: "FVM Orbit v__VERSION__"
-          releaseBody: |
-            ## FVM Orbit v__VERSION__
-
-            Native desktop spatial cockpit & menu bar / system tray switcher for **[btwld/fvm](https://github.com/btwld/fvm)** (built with Tauri v2 + Rust + React 19).
-
-            ### Downloads / 安装包下载
-
-            - **macOS (Apple Silicon / M1–M4)**: `FVM.Orbit___VERSION___aarch64.dmg` / `FVM.Orbit_aarch64.app.tar.gz`
-            - **macOS (Intel x86_64)**: `FVM.Orbit___VERSION___x64.dmg` / `FVM.Orbit_x64.app.tar.gz`
-            - **Windows (x64)**: `FVM.Orbit___VERSION___x64-setup.exe` / `FVM.Orbit___VERSION___x64_en-US.msi`
-            - **Windows (ARM64)**: `FVM.Orbit___VERSION___arm64-setup.exe`
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ needs.prepare-release.outputs.release_id }}
           args: ${{ matrix.args }}
