@@ -8,6 +8,11 @@ use crate::fvm::runner::{
     fetch_releases, fetch_workspace_snapshot, run_doctor, run_spawn_matrix, stream_fvm_command,
     CancelRegistry,
 };
+use crate::proxy::{
+    detect_system_proxy as detect_sys_proxy, get_current_proxy_settings,
+    test_proxy_connectivity as run_proxy_test, update_proxy_settings, ProxySettings,
+    ProxyTestResult, SystemProxyInfo,
+};
 use crate::tray::update_tray_state;
 use std::sync::Arc;
 use tauri::ipc::Channel;
@@ -95,4 +100,30 @@ pub fn fix_zshrc_path() -> Result<String, String> {
 #[tauri::command]
 pub fn set_app_icon(app: AppHandle, style: String) -> Result<String, String> {
     apply_dock_icon(&app, &style)
+}
+
+#[tauri::command]
+pub fn get_proxy_settings() -> ProxySettings {
+    get_current_proxy_settings()
+}
+
+#[tauri::command]
+pub fn set_proxy_settings(
+    app: AppHandle,
+    settings: ProxySettings,
+) -> Result<ProxySettings, String> {
+    update_proxy_settings(&app, settings)
+}
+
+#[tauri::command]
+pub async fn detect_system_proxy() -> SystemProxyInfo {
+    detect_sys_proxy().await
+}
+
+#[tauri::command]
+pub async fn test_proxy_connectivity(
+    settings: ProxySettings,
+    target_url: Option<String>,
+) -> Result<ProxyTestResult, String> {
+    run_proxy_test(settings, target_url).await
 }

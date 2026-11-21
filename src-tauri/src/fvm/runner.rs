@@ -50,6 +50,7 @@ fn build_fvm_cmd(args: &[String], cwd: Option<&str>) -> Command {
         .env("NO_COLOR", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    crate::proxy::apply_proxy_to_command(&mut cmd);
     if let Some(dir) = cwd {
         if !dir.trim().is_empty() && Path::new(dir).is_dir() {
             cmd.current_dir(dir);

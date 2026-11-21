@@ -1,6 +1,7 @@
 mod app_icon;
 mod commands;
 mod fvm;
+mod proxy;
 mod tray;
 
 use commands::AppState;
@@ -29,6 +30,7 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             app_icon::init_app_icon(&handle);
+            proxy::init_proxy_settings(&handle);
             if let Err(err) = tray::init_tray(&handle) {
                 eprintln!("Warning: failed to initialize macOS tray icon: {err}");
             }
@@ -44,6 +46,10 @@ pub fn run() {
             commands::get_doctor_report,
             commands::fix_zshrc_path,
             commands::set_app_icon,
+            commands::get_proxy_settings,
+            commands::set_proxy_settings,
+            commands::detect_system_proxy,
+            commands::test_proxy_connectivity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FVM Orbit");
