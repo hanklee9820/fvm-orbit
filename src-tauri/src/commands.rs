@@ -1,0 +1,92 @@
+use crate::fvm::env::append_fvm_path_to_zshrc;
+use crate::fvm::models::{
+    CliStreamEvent, DoctorOutput, ReleasesResponse, SpawnStreamEvent, SpawnTaskRequest,
+    WorkspaceSnapshot,
+};
+use crate::fvm::runner::{
+    fetch_releases, fetch_workspace_snapshot, run_doctor, run_spawn_matrix, stream_fvm_command,
+    CancelRegistry,
+};
+use crate::tray::update_tray_state;
+use std::sync::Arc;
+use tauri::ipc::Channel;
+use tauri::{AppHandle, State};
+
+pub struct AppState {
+    pub cancel_registry: Arc<CancelRegistry>,
+}
+
+#[tauri::command]
+pub async fn get_workspace_snapshot(
+    app: AppHandle,
+    extra_projects: Option<Vec<String>>,
+) -> Result<WorkspaceSnapshot, String> {
+    let snapshot = fetch_workspace_snapshot(extra_projects.unwrap_or_default()).await?;
+    let names: Vec<String> = snapshot.versions.iter().map(|v| v.name.clone()).collect();
+    update_tray_state(
+        &app,
+        snapshot.context.global_version.as_deref(),
+        &names,
+        &snapshot.total_cache_size_label,
+    );
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub async fn get_releases(
+    limit: Option<u32>,
+    channel: Option<String>,
+) -> Result<ReleasesResponse, String> {
+    fetch_releases(limit, channel).await
+}
+
+#[tauri::command]
+pub async fn run_fvm_stream(
+    request_id: String,
+    args: Vec<String>,
+    cwd: Option<String>,
+    on_event: Channel<CliStreamEvent>,
+    state: State<'_, AppState>,
+) -> Result<i32, String> {
+    stream_fvm_command(
+        request_id,
+        args,
+        cwd,
+        on_event,
+        state.cancel_registry.clone(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub fn cancel_fvm_request(request_id: String, state: State<'_, AppState>) -> bool {
+    state.cancel_registry.cancel(&request_id)
+}
+
+#[tauri::command]
+pub async fn execute_spawn_matrix(
+    request_id: String,
+    cwd: Option<String>,
+    tasks: Vec<SpawnTaskRequest>,
+    on_event: Channel<SpawnStreamEvent>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    run_spawn_matrix(
+        request_id,
+        cwd,
+        tasks,
+        on_event,
+        state.cancel_registry.clone(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn get_doctor_report(cwd: Option<String>) -> Result<DoctorOutput, String> {
+    run_doctor(cwd).await
+}
+
+#[tauri::command]
+pub fn fix_zshrc_path() -> Result<String, String> {
+    append_fvm_path_to_zshrc()
+}
