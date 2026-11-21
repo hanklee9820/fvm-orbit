@@ -22,6 +22,15 @@ export function TitleBar() {
       : `${snapshot?.context.osLabel ?? "macOS"} ${snapshot?.context.archLabel ?? ""}`.trim();
   const inTauri = isTauriRuntime();
 
+  const themeOrder: ThemeMode[] = ["system", "light", "dark"];
+  const themeMeta: Record<ThemeMode, { label: string; Icon: typeof Sun }> = {
+    system: { label: "跟随系统", Icon: Monitor },
+    light: { label: "浅色模式", Icon: Sun },
+    dark: { label: "深色模式", Icon: Moon },
+  };
+  const nextTheme = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length];
+  const CurrentThemeIcon = themeMeta[theme].Icon;
+
   return (
     <header
       data-tauri-drag-region
@@ -85,37 +94,15 @@ export function TitleBar() {
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
         </button>
 
-        <div
-          className="flex items-center p-0.5 rounded-lg bg-[var(--card)] border border-[var(--border)]"
-          role="group"
-          aria-label="主题模式"
+        <button
+          type="button"
+          onClick={() => setTheme(nextTheme)}
+          title={`主题：${themeMeta[theme].label}（点击切换为${themeMeta[nextTheme].label}）`}
+          aria-label={`主题：${themeMeta[theme].label}`}
+          className="p-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer"
         >
-          {(
-            [
-              { id: "system", label: "跟随系统", Icon: Monitor },
-              { id: "light", label: "浅色模式", Icon: Sun },
-              { id: "dark", label: "深色模式", Icon: Moon },
-            ] as { id: ThemeMode; label: string; Icon: typeof Sun }[]
-          ).map(({ id, label, Icon }) => {
-            const active = theme === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTheme(id)}
-                title={label}
-                aria-label={label}
-                className={`p-1.5 rounded-md transition cursor-pointer ${
-                  active
-                    ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                    : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-              </button>
-            );
-          })}
-        </div>
+          <CurrentThemeIcon className="w-3.5 h-3.5" />
+        </button>
 
         <button
           type="button"
