@@ -6,11 +6,21 @@ import {
   Network,
   Sparkles,
 } from "lucide-react";
+import { useState } from "react";
 import { formatBytes, useFvmStore } from "../store/useFvmStore";
 import type { TabId } from "../types/fvm";
 
+interface HoveredTip {
+  label: string;
+  sub: string;
+  detail: string;
+  top: number;
+  left: number;
+}
+
 export function Sidebar() {
   const { activeTab, setActiveTab, snapshot } = useFvmStore();
+  const [hoveredTip, setHoveredTip] = useState<HoveredTip | null>(null);
 
   const projectCount = snapshot?.projects.length ?? 0;
   const sdkCount = snapshot?.versions.length ?? 0;
@@ -26,6 +36,7 @@ export function Sidebar() {
     id: TabId;
     label: string;
     sub: string;
+    detail: string;
     badge: string | null;
     badgeTone?: "warning" | "error" | "success" | "neutral";
     Icon: typeof Network;
@@ -34,6 +45,7 @@ export function Sidebar() {
       id: "topology",
       label: "引力拓扑台",
       sub: "项目 ↔ SDK 绑定",
+      detail: "可视化管理追踪项目、多 Flavor 槽位与本地 SDK 软链绑定",
       badge: projectCount ? String(projectCount) : null,
       Icon: Network,
     },
@@ -41,6 +53,7 @@ export function Sidebar() {
       id: "releases",
       label: "版本宇宙",
       sub: "缓存 & 官方发布库",
+      detail: "浏览官方 Stable / Beta / Dev 发布版、Commit Hash 与自定义 Fork 直装",
       badge: String(sdkCount),
       Icon: Box,
     },
@@ -48,6 +61,7 @@ export function Sidebar() {
       id: "cleanup",
       label: "瘦身雷达",
       sub: "补丁收拢 & 空间清理",
+      detail: "分析磁盘占用、同系补丁零下载收拢与安全清理未引用 SDK",
       badge: cleanupCount > 0 ? String(cleanupCount) : null,
       badgeTone: cleanupCount > 0 ? "warning" : "neutral",
       Icon: Sparkles,
@@ -56,6 +70,7 @@ export function Sidebar() {
       id: "spawn",
       label: "Spawn 测试舱",
       sub: "多版本 / Flavor 并发",
+      detail: "跨多个 Flutter SDK 或 Flavor 并行执行 fvm spawn / flavor / exec 命令",
       badge: null,
       Icon: FlaskConical,
     },
@@ -63,6 +78,7 @@ export function Sidebar() {
       id: "doctor",
       label: "体检 & IDE/MCP",
       sub: "PATH / VSCode / MCP",
+      detail: "PATH 优先级诊断、VS Code / Android Studio 软链巡检、Melos 与 Dart MCP 配置",
       badge: pathOk ? "OK" : "1",
       badgeTone: pathOk ? "success" : "error",
       Icon: Activity,
@@ -71,6 +87,7 @@ export function Sidebar() {
       id: "config",
       label: "Forks & 配置",
       sub: "镜像源 / Git Cache",
+      detail: "管理自定义 Flutter Fork 别名、镜像仓库地址与全局 FVM 引擎参数",
       badge: forkCount ? String(forkCount) : null,
       Icon: GitFork,
     },
@@ -81,24 +98,52 @@ export function Sidebar() {
   return (
     <aside className="w-56 shrink-0 bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col justify-between p-3 gap-4 select-none">
       <nav className="space-y-1">
-        {navItems.map(({ id, label, sub, badge, badgeTone, Icon }) => {
+        {navItems.map(({ id, label, sub, detail, badge, badgeTone, Icon }) => {
           const active = activeTab === id;
-          const badgeClass =
-            badgeTone === "warning"
+          const badgeClass = active
+            ? badgeTone === "error"
+              ? "bg-[var(--error)] text-white font-semibold"
+              : badgeTone === "warning"
+                ? "bg-[var(--warning)] text-white font-semibold"
+                : badgeTone === "success"
+                  ? "bg-[var(--success)] text-white font-semibold"
+                  : "bg-white/20 text-[var(--primary-foreground)]"
+            : badgeTone === "warning"
               ? "bg-[var(--warning)]/20 text-[var(--warning)]"
               : badgeTone === "error"
                 ? "bg-[var(--error)]/20 text-[var(--error)]"
                 : badgeTone === "success"
                   ? "bg-[var(--success)]/20 text-[var(--success)]"
-                  : active
-                    ? "bg-white/20 text-[var(--primary-foreground)]"
-                    : "bg-[var(--secondary)] text-[var(--secondary-foreground)]";
+                  : "bg-[var(--secondary)] text-[var(--secondary-foreground)]";
 
           return (
             <button
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
+              onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredTip({
+                  label,
+                  sub,
+                  detail,
+                  top: rect.top + rect.height / 2,
+                  left: rect.right + 10,
+                });
+              }}
+              onMouseLeave={() => setHoveredTip(null)}
+              onFocus={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredTip({
+                  label,
+                  sub,
+                  detail,
+                  top: rect.top + rect.height / 2,
+                  left: rect.right + 10,
+                });
+              }}
+              onBlur={() => setHoveredTip(null)}
+              title={`${label} — ${sub}\n${detail}`}
               className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 transition cursor-pointer ${
                 active
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
@@ -115,7 +160,7 @@ export function Sidebar() {
                   <div className="text-xs font-semibold truncate">{label}</div>
                   <div
                     className={`text-xs truncate ${
-                      active ? "opacity-80" : "text-[var(--muted-foreground)]"
+                      active ? "opacity-85" : "text-[var(--muted-foreground)]"
                     }`}
                   >
                     {sub}
@@ -132,12 +177,38 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* Instant Floating Sidebar Tooltip (never clipped by overflow-hidden) */}
+      {hoveredTip && (
+        <div
+          role="tooltip"
+          style={{
+            top: hoveredTip.top,
+            left: hoveredTip.left,
+            transform: "translateY(-50%)",
+          }}
+          className="fixed z-50 pointer-events-none w-64 px-3 py-2.5 rounded-xl bg-[var(--card)] border border-[var(--border)] glass-elevated space-y-1"
+        >
+          <div className="text-xs font-semibold text-[var(--foreground)]">
+            {hoveredTip.label}
+          </div>
+          <div className="text-xs font-mono text-[var(--primary)]">
+            {hoveredTip.sub}
+          </div>
+          <div className="text-xs text-[var(--muted-foreground)] leading-relaxed pt-0.5 border-t border-[var(--border)]">
+            {hoveredTip.detail}
+          </div>
+        </div>
+      )}
+
       {/* Bottom Cache & Global Status Card */}
       <div className="space-y-3 pt-3 border-t border-[var(--border)]">
         <div className="p-3 rounded-xl bg-[var(--card)] border border-[var(--card-border)] space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--muted-foreground)]">全局默认 SDK</span>
-            <span className="font-mono font-semibold text-[var(--primary)] truncate max-w-[100px]">
+          <div className="flex items-center justify-between text-xs gap-2">
+            <span className="text-[var(--muted-foreground)] shrink-0">全局默认 SDK</span>
+            <span
+              title={globalSdk ?? "未设置"}
+              className="font-mono font-semibold text-[var(--primary)] truncate max-w-[100px]"
+            >
               {globalSdk ?? "未设置"}
             </span>
           </div>
