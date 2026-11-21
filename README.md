@@ -175,6 +175,9 @@ pnpm build
 
 # 打包 macOS 原生 .app / .dmg
 pnpm tauri:build
+
+# 一键升级版本号、打 v* 标签并触发 GitHub Actions 跨平台自动发版
+pnpm release patch          # 或 pnpm release minor / pnpm release 0.2.0
 ```
 
 ---

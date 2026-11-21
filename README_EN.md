@@ -175,6 +175,9 @@ pnpm build
 
 # Package native macOS .app / .dmg
 pnpm tauri:build
+
+# Bump version, push v* tag & trigger GitHub Actions cross-platform release
+pnpm release patch          # or pnpm release minor / pnpm release 0.2.0
 ```
 
 ---
