@@ -77,6 +77,11 @@ export async function applyZshrcPathFix(): Promise<string> {
   return invoke<string>("fix_zshrc_path");
 }
 
+export async function applyNativeAppIcon(effectiveStyle: "dark" | "light"): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await invoke<string>("set_app_icon", { style: effectiveStyle });
+}
+
 export async function pickDirectoryDialog(): Promise<string | null> {
   if (!isTauriRuntime()) return null;
   const selected = await openDialog({

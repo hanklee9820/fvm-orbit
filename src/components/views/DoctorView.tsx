@@ -4,6 +4,13 @@ import { useFvmStore } from "../../store/useFvmStore";
 
 const ZSH_EXPORT_CMD = 'export PATH="$HOME/fvm/default/bin:$PATH"';
 
+const ANSI_ESCAPE_RE =
+  /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[PX^_][^\x1b]*\x1b\\|[@-Z\\-_])|\u009b[0-?]*[ -/]*[@-~]/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_ESCAPE_RE, "").replace(/\r\n/g, "\n");
+}
+
 const MCP_SNIPPET = JSON.stringify(
   {
     mcpServers: {
@@ -242,8 +249,8 @@ export function DoctorView() {
             <span>重新运行 fvm doctor</span>
           </button>
         </div>
-        <pre className="p-4 m-0 max-h-64 overflow-auto scroll-thin bg-[var(--background)] font-mono text-xs text-[var(--code-foreground)] leading-relaxed whitespace-pre-wrap select-text">
-          {doctorReport?.rawOutput || "正在运行 fvm doctor…"}
+        <pre className="p-4 m-0 max-h-64 overflow-auto scroll-thin bg-[var(--background)] font-mono text-xs text-[var(--code-foreground)] leading-snug whitespace-pre select-text">
+          {doctorReport?.rawOutput ? stripAnsi(doctorReport.rawOutput) : "正在运行 fvm doctor…"}
         </pre>
       </div>
 

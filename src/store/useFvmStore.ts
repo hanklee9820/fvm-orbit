@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  applyNativeAppIcon,
   applyZshrcPathFix,
   cancelFvmRequest,
   executeSpawnMatrix,
@@ -12,6 +13,7 @@ import {
   streamFvmCommand,
 } from "../services/fvmBridge";
 import type {
+  AppIconStyle,
   CliLogEntry,
   DoctorOutput,
   ReleasesResponse,
@@ -25,6 +27,7 @@ import type {
 
 const EXTRA_PROJECTS_KEY = "fvm_orbit_extra_projects";
 const THEME_KEY = "fvm_orbit_theme";
+const APP_ICON_STYLE_KEY = "fvm_orbit_app_icon_style";
 
 function loadExtraProjects(): string[] {
   try {
@@ -53,11 +56,36 @@ function loadTheme(): ThemeMode {
   return "system";
 }
 
+function loadAppIconStyle(): AppIconStyle {
+  try {
+    const s = localStorage.getItem(APP_ICON_STYLE_KEY);
+    if (s === "dark" || s === "light" || s === "auto") return s;
+  } catch {
+    // ignore
+  }
+  return "dark";
+}
+
 export function resolveEffectiveTheme(mode: ThemeMode): "dark" | "light" {
   if (mode === "system") {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
   return mode;
+}
+
+export function resolveEffectiveAppIcon(
+  iconStyle: AppIconStyle,
+  theme: ThemeMode
+): "dark" | "light" {
+  if (iconStyle === "auto") {
+    return resolveEffectiveTheme(theme);
+  }
+  return iconStyle;
+}
+
+export function syncNativeAppIcon(iconStyle: AppIconStyle, theme: ThemeMode) {
+  const effective = resolveEffectiveAppIcon(iconStyle, theme);
+  void applyNativeAppIcon(effective).catch(() => {});
 }
 
 export function applyThemeToDomAndWindow(mode: ThemeMode) {
@@ -93,6 +121,7 @@ export function formatBytes(bytes: number): string {
 interface FvmStoreState {
   activeTab: TabId;
   theme: ThemeMode;
+  appIconStyle: AppIconStyle;
   loading: boolean;
   loadingReleases: boolean;
   error: string | null;
@@ -130,6 +159,7 @@ interface FvmStoreState {
 
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: ThemeMode) => void;
+  setAppIconStyle: (style: AppIconStyle) => Promise<void>;
   setCmdkOpen: (open: boolean) => void;
   setMenubarOpen: (open: boolean) => void;
   setConsoleOpen: (open: boolean) => void;
@@ -185,6 +215,7 @@ interface FvmStoreState {
 export const useFvmStore = create<FvmStoreState>((set, get) => ({
   activeTab: "topology",
   theme: loadTheme(),
+  appIconStyle: loadAppIconStyle(),
   loading: false,
   loadingReleases: false,
   error: null,
@@ -230,6 +261,31 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       // ignore
     }
     set({ theme });
+    if (get().appIconStyle === "auto") {
+      syncNativeAppIcon("auto", theme);
+    }
+  },
+
+  setAppIconStyle: async (style) => {
+    try {
+      localStorage.setItem(APP_ICON_STYLE_KEY, style);
+    } catch {
+      // ignore
+    }
+    set({ appIconStyle: style });
+    const effective = resolveEffectiveAppIcon(style, get().theme);
+    try {
+      await applyNativeAppIcon(effective);
+      const label =
+        style === "light"
+          ? "已切换为白底瓷光 App Logo"
+          : style === "dark"
+            ? "已切换为黑底曜石 App Logo"
+            : `App Logo 已设为跟随外观（当前：${effective === "light" ? "白底" : "黑底"}）`;
+      get().pushToast(label, "success");
+    } catch (err) {
+      get().pushToast(`切换应用图标失败: ${String(err)}`, "error");
+    }
   },
 
   setCmdkOpen: (open) => set({ cmdkOpen: open }),
@@ -280,6 +336,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   bootstrap: async () => {
     applyThemeToDomAndWindow(get().theme);
+    syncNativeAppIcon(get().appIconStyle, get().theme);
     if (!isTauriRuntime()) {
       set({ error: "请通过 FVM Orbit 桌面应用或 pnpm tauri:dev 启动，以连接本机 fvm CLI。" });
       return;

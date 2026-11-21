@@ -58,6 +58,132 @@ fn build_fvm_cmd(args: &[String], cwd: Option<&str>) -> Command {
     cmd
 }
 
+fn consume_st_or_bel(chars: &mut std::iter::Peekable<std::str::Chars<'_>>, allow_bel: bool) {
+    while let Some(c) = chars.next() {
+        if allow_bel && c == '\x07' {
+            break;
+        }
+        if c == '\u{009c}' {
+            break;
+        }
+        if c == '\x1b' && chars.peek() == Some(&'\\') {
+            chars.next();
+            break;
+        }
+    }
+}
+
+/// Strips ANSI/VT escape sequences (CSI, OSC, DCS/SOS/PM/APC, charset, 2-byte ESC),
+/// normalizes CRLF, resolves standalone CR spinner overwrites, and removes stray control characters
+/// while preserving Unicode text (including box-drawing characters, CJK, and emoji).
+pub fn strip_ansi_codes(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\x1b' => match chars.peek().copied() {
+                // CSI: ESC [ <params 0x30..=0x3F>* <intermediates 0x20..=0x2F>* <final 0x40..=0x7E>
+                Some('[') => {
+                    chars.next();
+                    while let Some(&c) = chars.peek() {
+                        if c == '\n' || c == '\x1b' {
+                            break;
+                        }
+                        chars.next();
+                        if ('@'..='~').contains(&c) {
+                            break;
+                        }
+                    }
+                }
+                // OSC: ESC ] ... (BEL | ST)
+                Some(']') => {
+                    chars.next();
+                    consume_st_or_bel(&mut chars, true);
+                }
+                // DCS / SOS / PM / APC: ESC (P | X | ^ | _) ... ST
+                Some('P' | 'X' | '^' | '_') => {
+                    chars.next();
+                    consume_st_or_bel(&mut chars, false);
+                }
+                // nF sequence: ESC <intermediate 0x20..=0x2F>+ <final 0x30..=0x7E>
+                Some(c) if (' '..='/').contains(&c) => {
+                    chars.next();
+                    while let Some(&next_c) = chars.peek() {
+                        if next_c == '\n' || next_c == '\x1b' {
+                            break;
+                        }
+                        chars.next();
+                        if ('0'..='~').contains(&next_c) {
+                            break;
+                        }
+                    }
+                }
+                // 2-byte ESC sequence: ESC <0x30..=0x7E>
+                Some(c) if ('0'..='~').contains(&c) => {
+                    chars.next();
+                }
+                // Lone or trailing ESC
+                _ => {}
+            },
+            // 8-bit CSI (U+009B)
+            '\u{009b}' => {
+                while let Some(&c) = chars.peek() {
+                    if c == '\n' || c == '\x1b' {
+                        break;
+                    }
+                    chars.next();
+                    if ('@'..='~').contains(&c) {
+                        break;
+                    }
+                }
+            }
+            // 8-bit OSC (U+009D)
+            '\u{009d}' => {
+                consume_st_or_bel(&mut chars, true);
+            }
+            // 8-bit DCS / SOS / PM / APC
+            '\u{0090}' | '\u{0098}' | '\u{009e}' | '\u{009f}' => {
+                consume_st_or_bel(&mut chars, false);
+            }
+            // Normalize CRLF; keep standalone CR for line-overwrite resolution below
+            '\r' => {
+                if chars.peek() == Some(&'\n') {
+                    chars.next();
+                    out.push('\n');
+                } else {
+                    out.push('\r');
+                }
+            }
+            '\n' | '\t' => out.push(ch),
+            c if c.is_control() => {}
+            other => out.push(other),
+        }
+    }
+
+    if out.contains('\r') {
+        let mut cleaned = String::with_capacity(out.len());
+        for (idx, line) in out.split('\n').enumerate() {
+            if idx > 0 {
+                cleaned.push('\n');
+            }
+            if line.contains('\r') {
+                let effective = line
+                    .split('\r')
+                    .rev()
+                    .find(|seg| !seg.is_empty())
+                    .unwrap_or("");
+                cleaned.push_str(effective);
+            } else {
+                cleaned.push_str(line);
+            }
+        }
+        return cleaned;
+    }
+
+    out
+}
+
 /// Extracts the JSON object/array from stdout even if FVM prints an update banner or warning preamble.
 fn extract_json_payload(raw: &str) -> Result<Value, String> {
     let trimmed = raw.trim();
@@ -75,7 +201,7 @@ fn extract_json_payload(raw: &str) -> Result<Value, String> {
     }
     Err(format!(
         "无法解析 FVM JSON 输出: {}",
-        trimmed.chars().take(240).collect::<String>()
+        strip_ansi_codes(trimmed).chars().take(240).collect::<String>()
     ))
 }
 
@@ -87,7 +213,7 @@ pub async fn run_fvm_json(args: &[&str], cwd: Option<&str>) -> Result<Value, Str
         .map_err(|e| format!("无法执行 fvm ({}) : {e}", resolve_fvm_binary()))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stderr = strip_ansi_codes(&String::from_utf8_lossy(&output.stderr));
 
     if !output.status.success() && stdout.trim().is_empty() {
         return Err(format!(
@@ -619,8 +745,8 @@ pub async fn run_doctor(cwd: Option<String>) -> Result<DoctorOutput, String> {
         .output()
         .await
         .map_err(|e| format!("无法执行 fvm doctor: {e}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let stdout = strip_ansi_codes(&String::from_utf8_lossy(&output.stdout));
+    let stderr = strip_ansi_codes(&String::from_utf8_lossy(&output.stderr));
     let combined = if stderr.trim().is_empty() {
         stdout
     } else if stdout.trim().is_empty() {
@@ -681,7 +807,7 @@ pub async fn stream_fvm_command(
                 let _ = ch_out.send(CliStreamEvent {
                     request_id: req_out.clone(),
                     kind: "stdout".into(),
-                    line: Some(line),
+                    line: Some(strip_ansi_codes(&line)),
                     exit_code: None,
                     duration_ms: None,
                 });
@@ -698,7 +824,7 @@ pub async fn stream_fvm_command(
                 let _ = ch_err.send(CliStreamEvent {
                     request_id: req_err.clone(),
                     kind: "stderr".into(),
-                    line: Some(line),
+                    line: Some(strip_ansi_codes(&line)),
                     exit_code: None,
                     duration_ms: None,
                 });
@@ -795,7 +921,7 @@ pub async fn run_spawn_matrix(
                             task_id: t1.clone(),
                             label: l1.clone(),
                             kind: "stdout".into(),
-                            line: Some(line),
+                            line: Some(strip_ansi_codes(&line)),
                             exit_code: None,
                             duration_ms: None,
                         });
@@ -813,7 +939,7 @@ pub async fn run_spawn_matrix(
                             task_id: t2.clone(),
                             label: l2.clone(),
                             kind: "stderr".into(),
-                            line: Some(line),
+                            line: Some(strip_ansi_codes(&line)),
                             exit_code: None,
                             duration_ms: None,
                         });
@@ -851,4 +977,28 @@ pub async fn run_spawn_matrix(
     }
     cancel_registry.remove(&request_id);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_ansi_codes;
+
+    #[test]
+    fn strips_fvm_doctor_cli_table_ansi_sequences() {
+        let raw = "\x1b[37m┌─────────┬───────────┐\x1b[m\n\
+                   \x1b[37m│ \x1b[m\x1b[1mProject\x1b[m\x1b[37m │ \x1b[m\x1b[1msrc-tauri\x1b[m\x1b[37m │\x1b[m\n\
+                   \x1b[37m└─────────┴───────────┘\x1b[m";
+        let expected = "┌─────────┬───────────┐\n\
+                        │ Project │ src-tauri │\n\
+                        └─────────┴───────────┘";
+        let cleaned = strip_ansi_codes(raw);
+        assert_eq!(cleaned, expected);
+        assert!(!cleaned.contains('\x1b'));
+    }
+
+    #[test]
+    fn strips_csi_osc_and_spinner_carriage_returns() {
+        let raw = "\x1b[?25l\x1b[38;2;59;130;246mChecking...\x1b[0m\r\x1b[2K\x1b]8;;https://fvm.app\x07✓ 就绪\x1b]8;;\x1b\\\x1b[?25h\r\n第二行\tOK";
+        assert_eq!(strip_ansi_codes(raw), "✓ 就绪\n第二行\tOK");
+    }
 }

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <style>
+    :root {
+      --u0: #7c52e3;
+      --u1: #5e3ab0;
+      --l0: #553b90;
+      --l1: #3b2470;
+      --cr: rgba(24, 12, 54, 0.36);
+      --c0: #0ea5e9;
+      --c1: #0284c7;
+      --o0: #553b90;
+      --o1: #0284c7;
+      --nd: #0284c7;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --u0: #c4b5fd;
+        --u1: #8b5cf6;
+        --l0: #7450d8;
+        --l1: #553b90;
+        --cr: rgba(15, 10, 36, 0.55);
+        --c0: #7dd3fc;
+        --c1: #38bdf8;
+        --o0: #8b5cf6;
+        --o1: #7dd3fc;
+        --nd: #54c5f8;
+      }
+    }
+  </style>
+  <defs>
+    <linearGradient id="u" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:var(--u0)"/>
+      <stop offset="100%" style="stop-color:var(--u1)"/>
+    </linearGradient>
+    <linearGradient id="l" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:var(--l0)"/>
+      <stop offset="100%" style="stop-color:var(--l1)"/>
+    </linearGradient>
+    <linearGradient id="c" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:var(--c0)"/>
+      <stop offset="100%" style="stop-color:var(--c1)"/>
+    </linearGradient>
+    <linearGradient id="o" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:var(--o0);stop-opacity:0.14"/>
+      <stop offset="100%" style="stop-color:var(--o1);stop-opacity:0.92"/>
+    </linearGradient>
+    <clipPath id="ch">
+      <path d="M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z"/>
+    </clipPath>
+  </defs>
+  <g transform="translate(0.25, -0.75)">
+    <path d="M9.6,10.2 Q14.3,6.1 18.8,7.8" stroke="url(#o)" stroke-width="1.25" stroke-linecap="round"/>
+    <circle cx="18.8" cy="7.8" r="1.65" style="fill:var(--nd)"/>
+    <g clip-path="url(#ch)">
+      <path d="M8.5,13L2.47,7H6.71L11.67,11.95C12.25,12.54 12.25,13.5 11.67,14.07L6.74,19H2.5L8.5,13Z" fill="url(#l)"/>
+      <polygon points="8.5,13.0 10.62,15.12 9.15,16.59 7.03,14.47" style="fill:var(--cr)"/>
+      <path d="M2.0,6.5 L7.2,6.5 L12.6,11.9 L12.6,14.5 L10.62,15.12 L8.5,13.0 Z" fill="url(#u)"/>
+    </g>
+    <rect x="13" y="16" width="8" height="3" rx="0.55" fill="url(#c)"/>
+  </g>
+</svg>

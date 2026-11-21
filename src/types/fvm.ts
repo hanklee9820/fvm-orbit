@@ -1,5 +1,6 @@
 export type TabId = "topology" | "releases" | "cleanup" | "spawn" | "doctor" | "config";
 export type ThemeMode = "system" | "dark" | "light";
+export type AppIconStyle = "dark" | "light" | "auto";
 
 export interface ForkEntry {
   name: string;

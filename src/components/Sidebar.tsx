@@ -109,8 +109,8 @@ export function Sidebar() {
     {
       id: "config",
       label: "Forks & 配置",
-      sub: "镜像源 / Git Cache",
-      detail: "管理自定义 Flutter Fork 别名、镜像仓库地址与全局 FVM 引擎参数",
+      sub: "图标外观 / 镜像源 / Cache",
+      detail: "切换白底 / 黑底 App Logo、管理自定义 Flutter Fork 别名、镜像源与全局 FVM 参数",
       badge: forkCount ? String(forkCount) : null,
       Icon: GitFork,
     },
@@ -166,7 +166,6 @@ export function Sidebar() {
                 });
               }}
               onBlur={() => setHoveredTip(null)}
-              title={`${label} — ${sub}\n${detail}`}
               className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 transition cursor-pointer ${
                 active
                   ? "bg-[var(--primary)] text-[var(--primary-foreground)]"

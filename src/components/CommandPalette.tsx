@@ -20,6 +20,7 @@ export function CommandPalette() {
     installSdk,
     refreshAll,
     refreshDoctor,
+    setAppIconStyle,
   } = useFvmStore();
 
   const [query, setQuery] = useState("");
@@ -81,6 +82,24 @@ export function CommandPalette() {
         sub: "fvm api context & list & cleanup",
         action: () => void refreshAll(),
       },
+      {
+        id: "icon-light",
+        title: "外观：切换为白底瓷光 App Logo",
+        sub: "实时更新 macOS Dock 图标为白色背景版本",
+        action: () => void setAppIconStyle("light"),
+      },
+      {
+        id: "icon-dark",
+        title: "外观：切换为黑底曜石 App Logo",
+        sub: "实时更新 macOS Dock 图标为黑色背景版本",
+        action: () => void setAppIconStyle("dark"),
+      },
+      {
+        id: "icon-auto",
+        title: "外观：App Logo 跟随浅色 / 深色主题自动切换",
+        sub: "随系统与应用外观自动切换白底 / 黑底图标",
+        action: () => void setAppIconStyle("auto"),
+      },
     ];
 
     const latestStable = releases?.channels.stable?.version;
@@ -112,7 +131,17 @@ export function CommandPalette() {
         i.title.toLowerCase().includes(term) ||
         i.sub.toLowerCase().includes(term)
     );
-  }, [query, snapshot, releases, setActiveTab, selectProject, installSdk, refreshAll, refreshDoctor]);
+  }, [
+    query,
+    snapshot,
+    releases,
+    setActiveTab,
+    selectProject,
+    installSdk,
+    refreshAll,
+    refreshDoctor,
+    setAppIconStyle,
+  ]);
 
   if (!cmdkOpen) return null;
 

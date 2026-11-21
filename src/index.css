@@ -27,6 +27,16 @@
   --chart-4: #a855f7;
   --chart-5: #f59e0b;
   --chart-6: #ec4899;
+  --logo-chev-upper-start: #c4b5fd;
+  --logo-chev-upper-end: #8b5cf6;
+  --logo-chev-lower-start: #7450d8;
+  --logo-chev-lower-end: #553b90;
+  --logo-crease: rgba(15, 10, 36, 0.55);
+  --logo-cursor-start: #7dd3fc;
+  --logo-cursor-end: #38bdf8;
+  --logo-orbit-start: #8b5cf6;
+  --logo-orbit-end: #7dd3fc;
+  --logo-node: #54c5f8;
 }
 
 :root[data-theme="light"] {
@@ -56,6 +66,16 @@
   --chart-4: #9333ea;
   --chart-5: #d97706;
   --chart-6: #db2777;
+  --logo-chev-upper-start: #7c52e3;
+  --logo-chev-upper-end: #5e3ab0;
+  --logo-chev-lower-start: #553b90;
+  --logo-chev-lower-end: #3b2470;
+  --logo-crease: rgba(24, 12, 54, 0.36);
+  --logo-cursor-start: #0ea5e9;
+  --logo-cursor-end: #0284c7;
+  --logo-orbit-start: #553b90;
+  --logo-orbit-end: #0284c7;
+  --logo-node: #0284c7;
 }
 
 * {

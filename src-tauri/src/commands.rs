@@ -1,3 +1,4 @@
+use crate::app_icon::apply_dock_icon;
 use crate::fvm::env::append_fvm_path_to_zshrc;
 use crate::fvm::models::{
     CliStreamEvent, DoctorOutput, ReleasesResponse, SpawnStreamEvent, SpawnTaskRequest,
@@ -89,4 +90,9 @@ pub async fn get_doctor_report(cwd: Option<String>) -> Result<DoctorOutput, Stri
 #[tauri::command]
 pub fn fix_zshrc_path() -> Result<String, String> {
     append_fvm_path_to_zshrc()
+}
+
+#[tauri::command]
+pub fn set_app_icon(app: AppHandle, style: String) -> Result<String, String> {
+    apply_dock_icon(&app, &style)
 }

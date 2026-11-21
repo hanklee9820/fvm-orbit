@@ -2,6 +2,7 @@ import { Copy, FolderPlus, Play, Plus, Trash2 } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatBytes, useFvmStore } from "../../store/useFvmStore";
 import type { ProjectInfo } from "../../types/fvm";
+import { BrandLogo } from "../BrandLogo";
 
 function channelBadgeClass(channel: string | null | undefined): string {
   if (channel === "stable") return "bg-[var(--success)]/15 text-[var(--success)]";
@@ -285,18 +286,8 @@ export function TopologyView() {
       {/* Empty Real Cache Onboarding */}
       {versions.length === 0 && projects.length === 0 ? (
         <div className="p-8 rounded-2xl bg-[var(--card)] border border-[var(--border)] text-center space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--secondary)] text-[var(--primary)] flex items-center justify-center">
-            <svg
-              className="w-6 h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-30 12 12)" />
-              <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(30 12 12)" />
-            </svg>
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-[var(--secondary)] border border-[var(--border)] flex items-center justify-center">
+            <BrandLogo className="w-8 h-8" />
           </div>
           <div className="space-y-1.5 max-w-lg mx-auto">
             <h2 className="text-base font-semibold">

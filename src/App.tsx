@@ -12,7 +12,7 @@ import { ReleasesView } from "./components/views/ReleasesView";
 import { SpawnView } from "./components/views/SpawnView";
 import { TopologyView } from "./components/views/TopologyView";
 import { subscribeNativeEvents } from "./services/fvmBridge";
-import { applyThemeToDomAndWindow, useFvmStore } from "./store/useFvmStore";
+import { applyThemeToDomAndWindow, syncNativeAppIcon, useFvmStore } from "./store/useFvmStore";
 import type { TabId } from "./types/fvm";
 
 export function App() {
@@ -56,8 +56,12 @@ export function App() {
     };
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const onSystemThemeChange = () => {
-      if (useFvmStore.getState().theme === "system") {
+      const state = useFvmStore.getState();
+      if (state.theme === "system") {
         applyThemeToDomAndWindow("system");
+        if (state.appIconStyle === "auto") {
+          syncNativeAppIcon("auto", "system");
+        }
       }
     };
     mediaQuery.addEventListener("change", onSystemThemeChange);

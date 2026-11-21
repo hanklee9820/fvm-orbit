@@ -1,4 +1,5 @@
 import { Monitor, Moon, PanelTop, RefreshCw, Search, Sun } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 import { useFvmStore } from "../store/useFvmStore";
 import { isTauriRuntime } from "../services/fvmBridge";
 import type { ThemeMode } from "../types/fvm";
@@ -39,22 +40,9 @@ export function TitleBar() {
       {/* Left: leave breathing room for native macOS Overlay traffic lights */}
       <div
         data-tauri-drag-region
-        className={`flex items-center gap-2.5 min-w-0 ${inTauri ? "pl-16" : ""}`}
+        className={`flex items-center gap-2 min-w-0 ${inTauri ? "pl-16" : ""}`}
       >
-        <div className="w-7 h-7 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] flex items-center justify-center shrink-0">
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-30 12 12)" />
-            <ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(30 12 12)" />
-          </svg>
-        </div>
+        <BrandLogo className="w-6 h-6 shrink-0" />
 
         <div data-tauri-drag-region className="flex items-center gap-2 min-w-0">
           <span className="font-semibold text-sm tracking-tight truncate">FVM Orbit</span>

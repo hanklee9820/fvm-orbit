@@ -1,3 +1,4 @@
+mod app_icon;
 mod commands;
 mod fvm;
 mod tray;
@@ -27,6 +28,7 @@ pub fn run() {
         .manage(app_state)
         .setup(|app| {
             let handle = app.handle().clone();
+            app_icon::init_app_icon(&handle);
             if let Err(err) = tray::init_tray(&handle) {
                 eprintln!("Warning: failed to initialize macOS tray icon: {err}");
             }
@@ -41,6 +43,7 @@ pub fn run() {
             commands::execute_spawn_matrix,
             commands::get_doctor_report,
             commands::fix_zshrc_path,
+            commands::set_app_icon,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FVM Orbit");
