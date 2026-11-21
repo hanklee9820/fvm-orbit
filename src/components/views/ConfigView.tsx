@@ -1,14 +1,10 @@
-import { Check, Download, Plus, Save, Trash2 } from "lucide-react";
+import { Download, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { resolveEffectiveAppIcon, useFvmStore } from "../../store/useFvmStore";
-import type { AppIconStyle } from "../../types/fvm";
+import { useFvmStore } from "../../store/useFvmStore";
 
 export function ConfigView() {
   const {
     snapshot,
-    theme,
-    appIconStyle,
-    setAppIconStyle,
     addFork,
     removeFork,
     installSdk,
@@ -33,125 +29,7 @@ export function ConfigView() {
     setUpdateCheck(!snapshot.context.updateCheckDisabled);
   }, [snapshot]);
 
-  const effectiveIcon = resolveEffectiveAppIcon(appIconStyle, theme);
-
-  const iconOptions: {
-    id: AppIconStyle;
-    title: string;
-    desc: string;
-    badge: string;
-  }[] = [
-    {
-      id: "dark",
-      title: "黑底曜石 Logo",
-      desc: "深邃曜石玻璃底，经典开发者终端质感",
-      badge: "Dark",
-    },
-    {
-      id: "light",
-      title: "白底瓷光 Logo",
-      desc: "纯净瓷白高对比底，适配深色 Dock 与浅色桌面",
-      badge: "Light",
-    },
-    {
-      id: "auto",
-      title: "跟随外观自动切换",
-      desc: `随应用浅色 / 深色模式自动切换（当前：${effectiveIcon === "light" ? "白底" : "黑底"}）`,
-      badge: "Auto",
-    },
-  ];
-
-  const appIconSection = (
-    <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
-      <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)] flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold">桌面应用图标 (App Logo)</h2>
-          <p className="text-xs text-[var(--muted-foreground)]">
-            即时切换 macOS Dock 与 ⌘+Tab 切换器中的 FVM Orbit 图标风格，重启后自动保持
-          </p>
-        </div>
-        <span className="px-2 py-0.5 rounded-md bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono text-xs">
-          当前：{effectiveIcon === "light" ? "白底瓷光" : "黑底曜石"}
-        </span>
-      </div>
-
-      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        {iconOptions.map((opt) => {
-          const active = appIconStyle === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => void setAppIconStyle(opt.id)}
-              className={`group text-left p-3.5 rounded-xl border transition flex items-center gap-3.5 cursor-pointer ${
-                active
-                  ? "bg-[var(--primary)]/8 border-[var(--primary)] ring-1 ring-[var(--primary)]/40"
-                  : "bg-[var(--background)] border-[var(--border)] hover:border-[var(--primary)]/60"
-              }`}
-            >
-              {/* Visual Icon Preview */}
-              <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-                {opt.id === "dark" && (
-                  <img
-                    src="/icons/app-icon-dark.png"
-                    alt="黑底曜石 App Logo"
-                    className="w-14 h-14 object-contain drop-shadow-sm transition-transform group-hover:scale-105"
-                  />
-                )}
-                {opt.id === "light" && (
-                  <img
-                    src="/icons/app-icon-light.png"
-                    alt="白底瓷光 App Logo"
-                    className="w-14 h-14 object-contain drop-shadow-sm transition-transform group-hover:scale-105"
-                  />
-                )}
-                {opt.id === "auto" && (
-                  <div className="relative w-14 h-14 transition-transform group-hover:scale-105">
-                    <img
-                      src="/icons/app-icon-light.png"
-                      alt="白底部分"
-                      className="absolute inset-0 w-14 h-14 object-contain"
-                      style={{ clipPath: "polygon(0 0, 100% 0, 0 100%)" }}
-                    />
-                    <img
-                      src="/icons/app-icon-dark.png"
-                      alt="黑底部分"
-                      className="absolute inset-0 w-14 h-14 object-contain"
-                      style={{ clipPath: "polygon(100% 0, 100% 100%, 0 100%)" }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Meta */}
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center justify-between gap-1.5">
-                  <span className="text-xs font-semibold truncate">{opt.title}</span>
-                  {active ? (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[var(--primary)] text-[var(--primary-foreground)] text-[10px] font-semibold shrink-0">
-                      <Check className="w-3 h-3" />
-                      <span>已选</span>
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono text-[10px] shrink-0">
-                      {opt.badge}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
-                  {opt.desc}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  if (!snapshot) {
-    return <div className="space-y-5">{appIconSection}</div>;
-  }
+  if (!snapshot) return null;
 
   const { forks, appConfigPath } = snapshot.context;
 
@@ -173,9 +51,6 @@ export function ConfigView() {
 
   return (
     <div className="space-y-5">
-      {/* App Logo Appearance Switcher */}
-      {appIconSection}
-
       {/* Custom Fork Registry */}
       <div className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--sidebar)]">

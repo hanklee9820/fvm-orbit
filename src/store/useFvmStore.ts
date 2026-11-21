@@ -4,21 +4,27 @@ import {
   applyNativeAppIcon,
   applyZshrcPathFix,
   cancelFvmRequest,
+  detectSystemProxy,
   executeSpawnMatrix,
   fetchDoctorReport,
+  fetchProxySettings,
   fetchReleases,
   fetchWorkspaceSnapshot,
   isTauriRuntime,
   pickDirectoryDialog,
+  saveProxySettings,
   streamFvmCommand,
 } from "../services/fvmBridge";
 import type {
   AppIconStyle,
   CliLogEntry,
   DoctorOutput,
+  ProxySettings,
   ReleasesResponse,
+  SettingsTabId,
   SpawnTaskRequest,
   SpawnTaskResult,
+  SystemProxyInfo,
   TabId,
   ThemeMode,
   ToastItem,
@@ -28,6 +34,104 @@ import type {
 const EXTRA_PROJECTS_KEY = "fvm_orbit_extra_projects";
 const THEME_KEY = "fvm_orbit_theme";
 const APP_ICON_STYLE_KEY = "fvm_orbit_app_icon_style";
+const PROXY_SETTINGS_KEY = "fvm_orbit_proxy_settings";
+
+export const DEFAULT_PROXY_SETTINGS: ProxySettings = {
+  mode: "system",
+  protocol: "http",
+  host: "127.0.0.1",
+  port: "7890",
+  username: "",
+  password: "",
+  bypass: "localhost,127.0.0.1,::1,.local",
+};
+
+function loadProxySettings(): ProxySettings {
+  try {
+    const raw = localStorage.getItem(PROXY_SETTINGS_KEY);
+    if (!raw) return DEFAULT_PROXY_SETTINGS;
+    const parsed = JSON.parse(raw) as Partial<ProxySettings>;
+    const mode =
+      parsed.mode === "direct" || parsed.mode === "system" || parsed.mode === "custom"
+        ? parsed.mode
+        : DEFAULT_PROXY_SETTINGS.mode;
+    const protocol =
+      parsed.protocol === "http" || parsed.protocol === "https" || parsed.protocol === "socks5"
+        ? parsed.protocol
+        : DEFAULT_PROXY_SETTINGS.protocol;
+    return {
+      mode,
+      protocol,
+      host: typeof parsed.host === "string" ? parsed.host : DEFAULT_PROXY_SETTINGS.host,
+      port: typeof parsed.port === "string" ? parsed.port : DEFAULT_PROXY_SETTINGS.port,
+      username: typeof parsed.username === "string" ? parsed.username : "",
+      password: typeof parsed.password === "string" ? parsed.password : "",
+      bypass:
+        typeof parsed.bypass === "string" ? parsed.bypass : DEFAULT_PROXY_SETTINGS.bypass,
+    };
+  } catch {
+    return DEFAULT_PROXY_SETTINGS;
+  }
+}
+
+function cacheProxySettings(settings: ProxySettings) {
+  try {
+    localStorage.setItem(PROXY_SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export interface ProxyDisplaySummary {
+  tone: "direct" | "active" | "warning";
+  navBadge: string;
+  statusLabel: string;
+  titleLabel: string;
+}
+
+export function getProxyDisplaySummary(
+  settings: ProxySettings,
+  sysInfo: SystemProxyInfo | null
+): ProxyDisplaySummary {
+  if (settings.mode === "direct") {
+    return {
+      tone: "direct",
+      navBadge: "直连",
+      statusLabel: "直连模式",
+      titleLabel: "直连下载",
+    };
+  }
+
+  if (settings.mode === "custom") {
+    const host = settings.host.trim() || "127.0.0.1";
+    const port = settings.port.trim() || "7890";
+    return {
+      tone: "active",
+      navBadge: "自定义",
+      statusLabel: `代理中 · ${port}`,
+      titleLabel: `代理 · ${host}:${port}`,
+    };
+  }
+
+  // "system"
+  const activePort = sysInfo?.httpsPort ?? sysInfo?.httpPort ?? sysInfo?.socksPort ?? null;
+  if (sysInfo?.effectiveUrl) {
+    const portSuffix = activePort ? ` · ${activePort}` : "";
+    return {
+      tone: "active",
+      navBadge: "系统",
+      statusLabel: `跟随系统${portSuffix}`,
+      titleLabel: `系统代理${portSuffix}`,
+    };
+  }
+
+  return {
+    tone: "warning",
+    navBadge: "系统",
+    statusLabel: "系统未开（回退直连）",
+    titleLabel: "系统代理（未开）",
+  };
+}
 
 function loadExtraProjects(): string[] {
   try {
@@ -158,6 +262,11 @@ interface FvmStoreState {
 
   cmdkOpen: boolean;
   menubarOpen: boolean;
+  settingsOpen: boolean;
+  settingsTab: SettingsTabId;
+  proxySettings: ProxySettings;
+  systemProxyInfo: SystemProxyInfo | null;
+  detectingSystemProxy: boolean;
   toasts: ToastItem[];
 
   setActiveTab: (tab: TabId) => void;
@@ -165,6 +274,11 @@ interface FvmStoreState {
   setAppIconStyle: (style: AppIconStyle) => Promise<void>;
   setCmdkOpen: (open: boolean) => void;
   setMenubarOpen: (open: boolean) => void;
+  openSettings: (tab?: SettingsTabId) => void;
+  closeSettings: () => void;
+  setSettingsTab: (tab: SettingsTabId) => void;
+  updateProxySettings: (next: ProxySettings, silent?: boolean) => Promise<boolean>;
+  refreshSystemProxy: () => Promise<SystemProxyInfo | null>;
   setConsoleOpen: (open: boolean) => void;
   clearLogs: () => void;
 
@@ -255,6 +369,11 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   cmdkOpen: false,
   menubarOpen: false,
+  settingsOpen: false,
+  settingsTab: "proxy",
+  proxySettings: loadProxySettings(),
+  systemProxyInfo: null,
+  detectingSystemProxy: false,
   toasts: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -296,6 +415,57 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   setCmdkOpen: (open) => set({ cmdkOpen: open }),
   setMenubarOpen: (open) => set({ menubarOpen: open }),
+  openSettings: (tab) => {
+    set((s) => ({
+      settingsOpen: true,
+      settingsTab: tab ?? s.settingsTab,
+      cmdkOpen: false,
+      menubarOpen: false,
+    }));
+    void get().refreshSystemProxy();
+  },
+  closeSettings: () => set({ settingsOpen: false }),
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
+  updateProxySettings: async (next, silent = false) => {
+    if (!isTauriRuntime()) {
+      cacheProxySettings(next);
+      set({ proxySettings: next });
+      return true;
+    }
+    try {
+      const saved = await saveProxySettings(next);
+      cacheProxySettings(saved);
+      set({ proxySettings: saved });
+      if (saved.mode === "system") {
+        void get().refreshSystemProxy();
+      }
+      if (!silent) {
+        const msg =
+          saved.mode === "direct"
+            ? "已切换为直连模式（下载 Flutter 不走代理）"
+            : saved.mode === "system"
+              ? "已切换为跟随 macOS 系统代理"
+              : `已启用自定义代理 ${saved.protocol}://${saved.host}:${saved.port}`;
+        get().pushToast(msg, "success");
+      }
+      return true;
+    } catch (err) {
+      get().pushToast(String(err), "error");
+      return false;
+    }
+  },
+  refreshSystemProxy: async () => {
+    if (!isTauriRuntime()) return null;
+    set({ detectingSystemProxy: true });
+    try {
+      const info = await detectSystemProxy();
+      set({ systemProxyInfo: info, detectingSystemProxy: false });
+      return info;
+    } catch {
+      set({ detectingSystemProxy: false });
+      return null;
+    }
+  },
   setConsoleOpen: (open) => set({ consoleOpen: open }),
   clearLogs: () => set({ logs: [] }),
 
@@ -346,6 +516,16 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     if (!isTauriRuntime()) {
       set({ error: "请通过 FVM Orbit 桌面应用或 pnpm tauri:dev 启动，以连接本机 fvm CLI。" });
       return;
+    }
+    try {
+      const [savedProxy] = await Promise.all([
+        fetchProxySettings(),
+        get().refreshSystemProxy(),
+      ]);
+      cacheProxySettings(savedProxy);
+      set({ proxySettings: savedProxy });
+    } catch {
+      // keep fallback settings
     }
     await Promise.all([get().refreshAll(), get().refreshReleases()]);
   },

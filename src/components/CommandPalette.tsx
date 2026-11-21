@@ -21,6 +21,9 @@ export function CommandPalette() {
     refreshAll,
     refreshDoctor,
     setAppIconStyle,
+    openSettings,
+    proxySettings,
+    updateProxySettings,
   } = useFvmStore();
 
   const [query, setQuery] = useState("");
@@ -83,6 +86,30 @@ export function CommandPalette() {
         action: () => void refreshAll(),
       },
       {
+        id: "open-settings-proxy",
+        title: "设置：打开网络代理设置 (⌘,)",
+        sub: "配置下载 Flutter SDK 时直连 / 系统代理 / 自定义代理",
+        action: () => openSettings("proxy"),
+      },
+      {
+        id: "open-settings-icon",
+        title: "设置：打开桌面应用图标设置",
+        sub: "切换黑底曜石 / 白底瓷光 / 自动 App Logo",
+        action: () => openSettings("appearance"),
+      },
+      {
+        id: "proxy-direct",
+        title: "代理：切换为直连（下载不走代理）",
+        sub: "清除代理环境变量并设置 NO_PROXY=*，适合国内镜像",
+        action: () => void updateProxySettings({ ...proxySettings, mode: "direct" }),
+      },
+      {
+        id: "proxy-system",
+        title: "代理：切换为跟随 macOS 系统代理",
+        sub: "自动读取 macOS 系统网络代理端口",
+        action: () => void updateProxySettings({ ...proxySettings, mode: "system" }),
+      },
+      {
         id: "icon-light",
         title: "外观：切换为白底瓷光 App Logo",
         sub: "实时更新 macOS Dock 图标为白色背景版本",
@@ -141,6 +168,9 @@ export function CommandPalette() {
     refreshAll,
     refreshDoctor,
     setAppIconStyle,
+    openSettings,
+    proxySettings,
+    updateProxySettings,
   ]);
 
   if (!cmdkOpen) return null;

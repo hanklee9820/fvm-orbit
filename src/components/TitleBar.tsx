@@ -1,6 +1,6 @@
-import { Monitor, Moon, PanelTop, RefreshCw, Search, Sun } from "lucide-react";
+import { Monitor, Moon, PanelTop, RefreshCw, Search, Settings, Sun } from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
-import { useFvmStore } from "../store/useFvmStore";
+import { getProxyDisplaySummary, useFvmStore } from "../store/useFvmStore";
 import { isTauriRuntime } from "../services/fvmBridge";
 import type { ThemeMode } from "../types/fvm";
 
@@ -13,6 +13,10 @@ export function TitleBar() {
     setCmdkOpen,
     menubarOpen,
     setMenubarOpen,
+    settingsOpen,
+    openSettings,
+    proxySettings,
+    systemProxyInfo,
     refreshAll,
   } = useFvmStore();
 
@@ -22,6 +26,13 @@ export function TitleBar() {
       ? "macOS arm64"
       : `${snapshot?.context.osLabel ?? "macOS"} ${snapshot?.context.archLabel ?? ""}`.trim();
   const inTauri = isTauriRuntime();
+  const proxySummary = getProxyDisplaySummary(proxySettings, systemProxyInfo);
+  const proxyDotClass =
+    proxySummary.tone === "active"
+      ? "bg-[var(--success)]"
+      : proxySummary.tone === "warning"
+        ? "bg-[var(--warning)]"
+        : "bg-[var(--muted-foreground)]";
 
   const themeOrder: ThemeMode[] = ["system", "light", "dark"];
   const themeMeta: Record<ThemeMode, { label: string; Icon: typeof Sun }> = {
@@ -70,8 +81,18 @@ export function TitleBar() {
         </kbd>
       </button>
 
-      {/* Right: Refresh + Theme + Quick Switch Popover */}
+      {/* Right: Proxy Pill + Refresh + Theme + Settings + Quick Switch Popover */}
       <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => openSettings("proxy")}
+          title={`当前下载网络：${proxySummary.statusLabel}（点击配置代理）`}
+          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-xs font-medium text-[var(--foreground)] transition cursor-pointer"
+        >
+          <span className={`w-2 h-2 rounded-full shrink-0 ${proxyDotClass}`} />
+          <span className="max-w-[132px] truncate">{proxySummary.titleLabel}</span>
+        </button>
+
         <button
           type="button"
           onClick={() => void refreshAll()}
@@ -90,6 +111,20 @@ export function TitleBar() {
           className="p-1.5 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition cursor-pointer"
         >
           <CurrentThemeIcon className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openSettings()}
+          title="设置 (⌘,)"
+          aria-label="打开设置"
+          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+            settingsOpen
+              ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
+              : "bg-[var(--card)] border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5" />
         </button>
 
         <button

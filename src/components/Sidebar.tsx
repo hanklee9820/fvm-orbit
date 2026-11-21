@@ -109,8 +109,8 @@ export function Sidebar() {
     {
       id: "config",
       label: "Forks & 配置",
-      sub: "图标外观 / 镜像源 / Cache",
-      detail: "切换白底 / 黑底 App Logo、管理自定义 Flutter Fork 别名、镜像源与全局 FVM 参数",
+      sub: "Fork 别名 / 镜像源 / Cache",
+      detail: "管理自定义 Flutter Fork 别名、镜像源与全局 FVM 引擎参数",
       badge: forkCount ? String(forkCount) : null,
       Icon: GitFork,
     },

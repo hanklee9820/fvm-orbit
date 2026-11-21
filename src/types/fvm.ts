@@ -1,6 +1,42 @@
 export type TabId = "topology" | "releases" | "cleanup" | "spawn" | "doctor" | "config";
 export type ThemeMode = "system" | "dark" | "light";
 export type AppIconStyle = "dark" | "light" | "auto";
+export type SettingsTabId = "proxy" | "appearance";
+export type ProxyMode = "direct" | "system" | "custom";
+export type ProxyProtocol = "http" | "https" | "socks5";
+
+export interface ProxySettings {
+  mode: ProxyMode;
+  protocol: ProxyProtocol;
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  bypass: string;
+}
+
+export interface SystemProxyInfo {
+  httpEnabled: boolean;
+  httpHost: string | null;
+  httpPort: number | null;
+  httpsEnabled: boolean;
+  httpsHost: string | null;
+  httpsPort: number | null;
+  socksEnabled: boolean;
+  socksHost: string | null;
+  socksPort: number | null;
+  exceptions: string[];
+  effectiveUrl: string | null;
+}
+
+export interface ProxyTestResult {
+  ok: boolean;
+  latencyMs: number;
+  targetUrl: string;
+  proxyUsed: string | null;
+  httpStatus: number | null;
+  message: string;
+}
 
 export interface ForkEntry {
   name: string;

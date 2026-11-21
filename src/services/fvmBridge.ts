@@ -5,9 +5,12 @@ import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
 import type {
   CliStreamEvent,
   DoctorOutput,
+  ProxySettings,
+  ProxyTestResult,
   ReleasesResponse,
   SpawnStreamEvent,
   SpawnTaskRequest,
+  SystemProxyInfo,
   WorkspaceSnapshot,
 } from "../types/fvm";
 
@@ -82,6 +85,28 @@ export async function applyNativeAppIcon(effectiveStyle: "dark" | "light"): Prom
   await invoke<string>("set_app_icon", { style: effectiveStyle });
 }
 
+export async function fetchProxySettings(): Promise<ProxySettings> {
+  return invoke<ProxySettings>("get_proxy_settings");
+}
+
+export async function saveProxySettings(settings: ProxySettings): Promise<ProxySettings> {
+  return invoke<ProxySettings>("set_proxy_settings", { settings });
+}
+
+export async function detectSystemProxy(): Promise<SystemProxyInfo> {
+  return invoke<SystemProxyInfo>("detect_system_proxy");
+}
+
+export async function testProxyConnectivity(
+  settings: ProxySettings,
+  targetUrl?: string
+): Promise<ProxyTestResult> {
+  return invoke<ProxyTestResult>("test_proxy_connectivity", {
+    settings,
+    targetUrl: targetUrl ?? null,
+  });
+}
+
 export async function pickDirectoryDialog(): Promise<string | null> {
   if (!isTauriRuntime()) return null;
   const selected = await openDialog({
@@ -111,6 +136,7 @@ export async function subscribeNativeEvents(handlers: {
   onNavigate: (tab: string) => void;
   onRefresh: () => void;
   onTraySetGlobal: (version: string) => void;
+  onOpenSettings: () => void;
 }): Promise<UnlistenFn[]> {
   if (!isTauriRuntime()) return [];
   return Promise.all([
@@ -118,5 +144,6 @@ export async function subscribeNativeEvents(handlers: {
     listen<string>("fvm://navigate", (e) => handlers.onNavigate(e.payload)),
     listen("fvm://refresh", () => handlers.onRefresh()),
     listen<string>("fvm://tray-set-global", (e) => handlers.onTraySetGlobal(e.payload)),
+    listen("fvm://open-settings", () => handlers.onOpenSettings()),
   ]);
 }

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { CliConsole } from "./components/CliConsole";
 import { CommandPalette } from "./components/CommandPalette";
 import { MenuBarPopover } from "./components/MenuBarPopover";
+import { SettingsModal } from "./components/SettingsModal";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { ToastContainer } from "./components/ToastContainer";
@@ -25,6 +26,8 @@ export function App() {
     setGlobalSdk,
     setCmdkOpen,
     setMenubarOpen,
+    openSettings,
+    closeSettings,
   } = useFvmStore();
 
   useEffect(() => {
@@ -41,6 +44,7 @@ export function App() {
       },
       onRefresh: () => void refreshAll(),
       onTraySetGlobal: (ver) => void setGlobalSdk(ver),
+      onOpenSettings: () => openSettings(),
     }).then((fns) => {
       cleanups = fns;
     });
@@ -49,9 +53,13 @@ export function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdkOpen(true);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        openSettings();
       } else if (e.key === "Escape") {
         setCmdkOpen(false);
         setMenubarOpen(false);
+        closeSettings();
       }
     };
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -73,7 +81,16 @@ export function App() {
       window.removeEventListener("keydown", onKeyDown);
       cleanups.forEach((fn) => fn());
     };
-  }, [bootstrap, refreshAll, setActiveTab, setGlobalSdk, setCmdkOpen, setMenubarOpen]);
+  }, [
+    bootstrap,
+    refreshAll,
+    setActiveTab,
+    setGlobalSdk,
+    setCmdkOpen,
+    setMenubarOpen,
+    openSettings,
+    closeSettings,
+  ]);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[var(--background)] text-[var(--foreground)] overflow-hidden">
@@ -110,6 +127,7 @@ export function App() {
       </div>
 
       <MenuBarPopover />
+      <SettingsModal />
       <CommandPalette />
       <ToastContainer />
     </div>
