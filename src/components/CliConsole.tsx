@@ -1,5 +1,25 @@
 import { ChevronDown, ChevronUp, Copy, Square, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useFvmStore } from "../store/useFvmStore";
+
+const HEIGHT_STORAGE_KEY = "fvm_orbit_console_height";
+const DEFAULT_HEIGHT = 160;
+const MIN_HEIGHT = 96;
+
+function loadSavedHeight(): number {
+  try {
+    const raw = localStorage.getItem(HEIGHT_STORAGE_KEY);
+    if (raw) {
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed >= MIN_HEIGHT && parsed <= 640) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_HEIGHT;
+}
 
 export function CliConsole() {
   const {
@@ -12,6 +32,77 @@ export function CliConsole() {
     pushToast,
   } = useFvmStore();
 
+  const [height, setHeight] = useState<number>(loadSavedHeight);
+  const [dragging, setDragging] = useState(false);
+  const heightRef = useRef(height);
+  heightRef.current = height;
+
+  useEffect(() => {
+    const onResize = () => {
+      const maxH = Math.max(MIN_HEIGHT, window.innerHeight - 220);
+      setHeight((h) => Math.min(h, maxH));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const startResize = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = consoleOpen ? heightRef.current : 0;
+    let moved = false;
+
+    setDragging(true);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const deltaY = startY - ev.clientY;
+      if (!moved && Math.abs(deltaY) < 3) return;
+      moved = true;
+
+      const maxH = Math.max(MIN_HEIGHT, window.innerHeight - 220);
+      const rawNext = startH + deltaY;
+
+      if (rawNext < 56) {
+        setConsoleOpen(false);
+        return;
+      }
+
+      if (!useFvmStore.getState().consoleOpen) {
+        setConsoleOpen(true);
+      }
+      const clamped = Math.max(MIN_HEIGHT, Math.min(maxH, Math.round(rawNext)));
+      setHeight(clamped);
+    };
+
+    const onMouseUp = () => {
+      setDragging(false);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      try {
+        localStorage.setItem(HEIGHT_STORAGE_KEY, String(heightRef.current));
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const resetHeight = () => {
+    setHeight(DEFAULT_HEIGHT);
+    setConsoleOpen(true);
+    try {
+      localStorage.setItem(HEIGHT_STORAGE_KEY, String(DEFAULT_HEIGHT));
+    } catch {
+      // ignore
+    }
+  };
+
   const latest = logs[0];
   const hasRunning = activeRequestIds.length > 0;
 
@@ -21,8 +112,36 @@ export function CliConsole() {
   };
 
   return (
-    <section className="shrink-0 border-t border-[var(--border)] bg-[var(--sidebar)]">
-      <div className="px-4 py-2 flex items-center justify-between gap-3 border-b border-[var(--border)]">
+    <section className="shrink-0 bg-[var(--sidebar)] relative flex flex-col">
+      {/* Top Drag-to-Resize Handle */}
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="上下拖拽调整实时 CLI 控制台高度（双击重置）"
+        title="上下拖拽调整控制台高度（双击重置默认高度）"
+        onMouseDown={startResize}
+        onDoubleClick={resetHeight}
+        className={`group h-2 -mt-1 w-full cursor-row-resize flex items-center justify-center z-20 transition-colors ${
+          dragging ? "bg-[var(--primary)]/25" : "hover:bg-[var(--primary)]/15"
+        }`}
+      >
+        <div
+          className={`w-full h-px transition-colors ${
+            dragging
+              ? "bg-[var(--primary)]"
+              : "bg-[var(--border)] group-hover:bg-[var(--primary)]/70"
+          }`}
+        />
+        <span
+          className={`absolute w-9 h-1 rounded-full transition-opacity ${
+            dragging
+              ? "bg-[var(--primary)] opacity-100"
+              : "bg-[var(--muted-foreground)]/60 opacity-0 group-hover:opacity-100"
+          }`}
+        />
+      </div>
+
+      <div className="px-4 py-2 flex items-center justify-between gap-3 border-b border-[var(--border)] select-none">
         <div className="flex items-center gap-2.5 min-w-0">
           <span
             className={`w-2 h-2 rounded-full shrink-0 ${
@@ -33,7 +152,10 @@ export function CliConsole() {
             实时 CLI 透明控制台
           </span>
           {latest && (
-            <span className="hidden sm:inline font-mono text-xs text-[var(--code-foreground)] truncate max-w-md px-2 py-0.5 rounded bg-[var(--card)] border border-[var(--border)]">
+            <span
+              title={`$ ${latest.cmd}`}
+              className="hidden sm:inline font-mono text-xs text-[var(--code-foreground)] truncate max-w-md px-2 py-0.5 rounded bg-[var(--card)] border border-[var(--border)]"
+            >
               $ {latest.cmd}
             </span>
           )}
@@ -60,7 +182,10 @@ export function CliConsole() {
       </div>
 
       {consoleOpen && (
-        <div className="h-40 overflow-y-auto scroll-thin px-4 py-2 font-mono text-xs space-y-2 bg-[var(--background)] select-text">
+        <div
+          style={{ height: `${height}px` }}
+          className="overflow-y-auto scroll-thin px-4 py-2 font-mono text-xs space-y-2 bg-[var(--background)] select-text"
+        >
           {logs.length === 0 ? (
             <div className="py-6 text-center text-[var(--muted-foreground)]">
               暂无 CLI 执行记录，在上方触发任意操作将在此实时流式输出对应 fvm 指令与日志。
