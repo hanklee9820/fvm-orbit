@@ -612,6 +612,9 @@
             <button type="button" role="tab" aria-selected="true" class="showcase-tab active" data-shot="topology" data-i18n="tabs.topology">引力拓扑台</button>
             <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="releases" data-i18n="tabs.releases">版本宇宙</button>
             <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="cleanup" data-i18n="tabs.cleanup">瘦身雷达</button>
+            <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="spawn" data-i18n="tabs.spawn">Spawn 测试舱</button>
+            <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="doctor" data-i18n="tabs.doctor">体检 &amp; IDE/MCP</button>
+            <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="config" data-i18n="tabs.config">Forks &amp; 配置</button>
           </div>
 
           <div class="showcase-frame">
@@ -909,6 +912,9 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
             topology: "引力拓扑台",
             releases: "版本宇宙",
             cleanup: "瘦身雷达",
+            spawn: "Spawn 测试舱",
+            doctor: "体检 & IDE/MCP",
+            config: "Forks & 配置",
           },
           shots: {
             topology: {
@@ -922,6 +928,18 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
             cleanup: {
               alt: "FVM Orbit 瘦身雷达界面截图",
               desc: "精确核算每个缓存 SDK 与 cache.git 磁盘占比，一键完成同系小版本补丁零下载收拢与闲置清理。",
+            },
+            spawn: {
+              alt: "FVM Orbit Spawn 测试舱界面截图",
+              desc: "无需反复切换项目版本，基于 Rust Tokio 同时在多个 Flutter SDK 或 Flavor 上并发执行测试与分析，并排对比通过状态、实时日志与耗时。",
+            },
+            doctor: {
+              alt: "FVM Orbit 体检 & IDE/MCP 界面截图",
+              desc: "自动诊断登录 Shell $PATH 优先级冲突并支持备份安全写入 ~/.zshrc，巡检 VS Code / IntelliJ / Melos 软链并一键复制 Dart MCP Server 配置。",
+            },
+            config: {
+              alt: "FVM Orbit Forks & 配置界面截图",
+              desc: "可视化管理自定义 Flutter Fork 别名仓库、一键切换 GitHub 官方源与清华大学 TUNA 镜像、配置 Git Reference Cache 与缓存目录。",
             },
           },
           fvm: {
@@ -1035,6 +1053,9 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
             topology: "Topology Studio",
             releases: "Releases Explorer",
             cleanup: "Cleanup Radar",
+            spawn: "Spawn Matrix",
+            doctor: "Doctor & IDE/MCP",
+            config: "Forks & Config",
           },
           shots: {
             topology: {
@@ -1048,6 +1069,18 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
             cleanup: {
               alt: "FVM Orbit Cleanup Radar screenshot",
               desc: "Exact disk footprint for every cached SDK and cache.git, with 1-click zero-download minor patch consolidation and unused SDK pruning.",
+            },
+            spawn: {
+              alt: "FVM Orbit Spawn Matrix screenshot",
+              desc: "Run fvm spawn / flavor / exec concurrently across multiple Flutter SDKs or flavors via Rust Tokio without switching versions, comparing status, logs, and duration side by side.",
+            },
+            doctor: {
+              alt: "FVM Orbit Doctor & IDE/MCP screenshot",
+              desc: "Automatically diagnoses login shell $PATH shadowing with backed-up ~/.zshrc auto-repair, audits VS Code / IntelliJ / Melos symlinks, and copies Dart MCP Server JSON in one click.",
+            },
+            config: {
+              alt: "FVM Orbit Forks & Config screenshot",
+              desc: "Manage custom Flutter Fork alias repositories, switch between official GitHub and Tsinghua TUNA mirrors in one click, and configure Git Reference Cache & cache directories.",
             },
           },
           fvm: {
@@ -1149,7 +1182,7 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
         }
       } catch (e) {}
 
-      const shotKeys = ["topology", "releases", "cleanup"];
+      const shotKeys = ["topology", "releases", "cleanup", "spawn", "doctor", "config"];
       let currentShot = "topology";
       const shots = {
         topology: {
@@ -1163,6 +1196,18 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
         cleanup: {
           base: "images/app-cleanup",
           cmd: "fvm cleanup --remove-unused -y",
+        },
+        spawn: {
+          base: "images/app-spawn",
+          cmd: "fvm spawn <ver> flutter test",
+        },
+        doctor: {
+          base: "images/app-doctor",
+          cmd: "fvm doctor & fvm api context",
+        },
+        config: {
+          base: "images/app-config",
+          cmd: "fvm fork & fvm config",
         },
       };
 
