@@ -6,6 +6,26 @@
   <title>FVM Orbit — btwld/fvm 的原生 macOS 桌面指挥台</title>
   <meta name="description" content="FVM Orbit 是基于 Tauri v2 + Rust + React 19 构建的 btwld/fvm 原生桌面端与菜单栏 GUI，让 Flutter 多版本切换、Flavor 绑定、缓存瘦身与多版本并发测试一目了然。" />
   <link rel="icon" type="image/svg+xml" href="images/icon.svg" />
+  <script>
+    (function () {
+      var mode = "system";
+      try {
+        var saved = localStorage.getItem("fvm_orbit_docs_theme");
+        if (saved === "system" || saved === "light" || saved === "dark") mode = saved;
+      } catch (e) {}
+      var eff = mode === "system"
+        ? (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : mode;
+      document.documentElement.setAttribute("data-theme", eff);
+      var link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.type = "image/webp";
+      link.fetchPriority = "high";
+      link.href = "images/app-topology-" + eff + ".webp";
+      document.head.appendChild(link);
+    })();
+  </script>
   <style>
     :root {
       color-scheme: dark;
@@ -256,10 +276,65 @@
       background: var(--bg-card);
       box-shadow: var(--shadow);
     }
-    .showcase-frame img {
+    .showcase-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1360 / 860;
+      background: var(--bg-card);
+      overflow: hidden;
+    }
+    .showcase-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan), var(--primary), transparent);
+      background-size: 200% 100%;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 5;
+      transition: opacity 0.15s ease;
+    }
+    .showcase-stage.is-loading::after {
+      opacity: 1;
+      animation: showcase-shimmer 1.1s linear infinite;
+    }
+    @keyframes showcase-shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .showcase-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      z-index: 0;
+      will-change: opacity;
+    }
+    .showcase-slide.is-prev {
+      opacity: 1;
+      visibility: visible;
+      z-index: 1;
+    }
+    .showcase-slide.is-active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      z-index: 2;
+      transition: opacity 0.16s ease;
+    }
+    .showcase-slide picture,
+    .showcase-slide img,
+    .showcase-stage > noscript img {
       display: block;
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: cover;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .showcase-slide.is-active { transition: none; }
+      .showcase-stage.is-loading::after { animation: none; }
     }
     .showcase-caption {
       padding: 12px 18px;
@@ -508,13 +583,20 @@
 
         <div id="preview">
           <div class="showcase-tabs" role="tablist" aria-label="应用界面切换">
-            <button type="button" class="showcase-tab active" data-shot="topology">引力拓扑台</button>
-            <button type="button" class="showcase-tab" data-shot="releases">版本宇宙</button>
-            <button type="button" class="showcase-tab" data-shot="cleanup">瘦身雷达</button>
+            <button type="button" role="tab" aria-selected="true" class="showcase-tab active" data-shot="topology">引力拓扑台</button>
+            <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="releases">版本宇宙</button>
+            <button type="button" role="tab" aria-selected="false" class="showcase-tab" data-shot="cleanup">瘦身雷达</button>
           </div>
 
           <div class="showcase-frame">
-            <img id="shot-img" src="images/app-topology-dark.png" alt="FVM Orbit 应用界面截图" />
+            <div id="shot-stage" class="showcase-stage is-loading">
+              <noscript>
+                <picture>
+                  <source type="image/webp" srcset="images/app-topology-dark.webp" />
+                  <img src="images/app-topology-dark.png" width="1360" height="860" alt="FVM Orbit 引力拓扑台界面截图" />
+                </picture>
+              </noscript>
+            </div>
             <div class="showcase-caption">
               <span id="shot-desc">项目 ↔ SDK 实时 SVG 引力拓扑连线、多 Flavor 槽位绑定、.fvmrc 实时预览与底部可拖拽透明 CLI 控制台。</span>
               <span class="mono" id="shot-cmd">fvm api context &amp; list &amp; project</span>
@@ -719,47 +801,199 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
       const STORAGE_KEY = "fvm_orbit_docs_theme";
       const order = ["system", "light", "dark"];
       const labels = { system: "跟随系统", light: "浅色模式", dark: "深色模式" };
-      let mode = localStorage.getItem(STORAGE_KEY);
-      if (!order.includes(mode)) mode = "system";
+      let mode = "system";
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (order.includes(saved)) mode = saved;
+      } catch (e) {}
 
+      const shotKeys = ["topology", "releases", "cleanup"];
       let currentShot = "topology";
       const shots = {
         topology: {
-          dark: "images/app-topology-dark.png",
-          light: "images/app-topology-light.png",
+          base: "images/app-topology",
+          alt: "FVM Orbit 引力拓扑台界面截图",
           desc: "项目 ↔ SDK 实时 SVG 引力拓扑连线、多 Flavor 槽位绑定、.fvmrc 实时预览与底部可拖拽透明 CLI 控制台。",
           cmd: "fvm api context & list & project",
         },
         releases: {
-          dark: "images/app-releases-dark.png",
-          light: "images/app-releases-light.png",
+          base: "images/app-releases",
+          alt: "FVM Orbit 版本宇宙界面截图",
           desc: "实时对接 fvm api releases：四大发布渠道、配套 Dart SDK 检索、Commit Hash 与自定义 Fork 一键直装。",
           cmd: "fvm api releases --compress",
         },
         cleanup: {
-          dark: "images/app-cleanup-dark.png",
-          light: "images/app-cleanup-light.png",
+          base: "images/app-cleanup",
+          alt: "FVM Orbit 瘦身雷达界面截图",
           desc: "精确核算每个缓存 SDK 与 cache.git 磁盘占比，一键完成同系小版本补丁零下载收拢与闲置清理。",
           cmd: "fvm cleanup --remove-unused -y",
         },
       };
 
-      const img = document.getElementById("shot-img");
+      const stage = document.getElementById("shot-stage");
       const desc = document.getElementById("shot-desc");
       const cmd = document.getElementById("shot-cmd");
+      const themeBtn = document.getElementById("theme-btn");
+      const tabs = Array.from(document.querySelectorAll(".showcase-tab"));
+
+      const slides = new Map();
+      let activeEntry = null;
+      let prevCleanupTimer = 0;
+      let renderSeq = 0;
+      let warmupStarted = false;
 
       function resolveTheme(m) {
         if (m === "light" || m === "dark") return m;
         return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       }
 
+      function ensureSlide(shotKey, theme, highPriority) {
+        const key = shotKey + "-" + theme;
+        const existing = slides.get(key);
+        if (existing) {
+          if (highPriority && !existing.ready) {
+            existing.img.fetchPriority = "high";
+          }
+          return existing;
+        }
+
+        const s = shots[shotKey];
+        const wrapper = document.createElement("div");
+        wrapper.className = "showcase-slide";
+        wrapper.dataset.slot = key;
+
+        const picture = document.createElement("picture");
+        const source = document.createElement("source");
+        source.type = "image/webp";
+        source.srcset = s.base + "-" + theme + ".webp";
+
+        const img = document.createElement("img");
+        img.width = 1360;
+        img.height = 860;
+        img.alt = s.alt;
+        img.decoding = "async";
+        img.fetchPriority = highPriority ? "high" : "low";
+
+        // Attach <source> + <img> inside <picture> BEFORE setting img.src
+        // so the browser selects WebP immediately without fetching the PNG fallback.
+        picture.appendChild(source);
+        picture.appendChild(img);
+        wrapper.appendChild(picture);
+        stage.appendChild(wrapper);
+
+        const entry = { key, el: wrapper, img, ready: false, promise: null };
+        entry.promise = new Promise((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            entry.ready = true;
+            resolve(entry);
+          };
+          const markReady = () => {
+            if (typeof img.decode === "function") {
+              img.decode().catch(() => {}).finally(finish);
+            } else {
+              finish();
+            }
+          };
+          img.addEventListener("load", markReady, { once: true });
+          img.addEventListener("error", finish, { once: true });
+          img.src = s.base + "-" + theme + ".png";
+          if (img.complete && img.naturalWidth > 0) {
+            markReady();
+          }
+        });
+
+        slides.set(key, entry);
+        return entry;
+      }
+
+      function activateSlide(entry) {
+        if (activeEntry === entry) return;
+
+        if (prevCleanupTimer) {
+          clearTimeout(prevCleanupTimer);
+          prevCleanupTimer = 0;
+        }
+
+        slides.forEach((item) => {
+          if (item !== entry && item !== activeEntry) {
+            item.el.classList.remove("is-active", "is-prev");
+          }
+        });
+
+        const prev = activeEntry;
+        if (prev) {
+          prev.el.classList.remove("is-active");
+          prev.el.classList.add("is-prev");
+        }
+
+        // Ensure transition runs cleanly even if slide was previously visible
+        entry.el.classList.remove("is-prev");
+        void entry.el.offsetWidth;
+        entry.el.classList.add("is-active");
+        activeEntry = entry;
+
+        if (prev) {
+          prevCleanupTimer = setTimeout(() => {
+            prev.el.classList.remove("is-prev");
+            prevCleanupTimer = 0;
+          }, 200);
+        }
+      }
+
+      function scheduleWarmup(primaryTheme) {
+        if (warmupStarted) return;
+        warmupStarted = true;
+
+        const saveData = navigator.connection && navigator.connection.saveData;
+        if (saveData) return;
+
+        // Wave 1: preload & pre-decode remaining tabs in the active theme
+        const wave1 = shotKeys.map((k) => ensureSlide(k, primaryTheme, false).promise);
+
+        // Wave 2: quietly warm opposite theme during browser idle time
+        const otherTheme = primaryTheme === "dark" ? "light" : "dark";
+        const warmOpposite = () => {
+          const ordered = [currentShot].concat(shotKeys.filter((k) => k !== currentShot));
+          ordered.forEach((k) => ensureSlide(k, otherTheme, false));
+        };
+
+        Promise.all(wave1).then(() => {
+          if (typeof window.requestIdleCallback === "function") {
+            window.requestIdleCallback(warmOpposite, { timeout: 1500 });
+          } else {
+            setTimeout(warmOpposite, 400);
+          }
+        });
+      }
+
       function renderShot() {
         const eff = resolveTheme(mode);
         const s = shots[currentShot];
         if (!s) return;
-        img.src = eff === "light" ? s.light : s.dark;
+
         desc.textContent = s.desc;
         cmd.textContent = s.cmd;
+
+        const seq = ++renderSeq;
+        const entry = ensureSlide(currentShot, eff, true);
+
+        if (entry.ready) {
+          stage.classList.remove("is-loading");
+          activateSlide(entry);
+          scheduleWarmup(eff);
+          return;
+        }
+
+        stage.classList.add("is-loading");
+        entry.promise.then(() => {
+          if (seq !== renderSeq) return;
+          stage.classList.remove("is-loading");
+          activateSlide(entry);
+          scheduleWarmup(eff);
+        });
       }
 
       function applyTheme(m) {
@@ -775,16 +1009,38 @@ open "src-tauri/target/release/bundle/macos/FVM Orbit.app"</pre>
         if (mode === "system") applyTheme("system");
       });
 
-      document.getElementById("theme-btn").addEventListener("click", () => {
+      const prefetchNextTheme = () => {
+        const nextMode = order[(order.indexOf(mode) + 1) % order.length];
+        const nextEff = resolveTheme(nextMode);
+        if (nextEff !== resolveTheme(mode)) {
+          ensureSlide(currentShot, nextEff, false);
+        }
+      };
+      themeBtn.addEventListener("pointerenter", prefetchNextTheme);
+      themeBtn.addEventListener("focus", prefetchNextTheme);
+
+      themeBtn.addEventListener("click", () => {
         mode = order[(order.indexOf(mode) + 1) % order.length];
-        localStorage.setItem(STORAGE_KEY, mode);
+        try { localStorage.setItem(STORAGE_KEY, mode); } catch (e) {}
         applyTheme(mode);
       });
 
-      document.querySelectorAll(".showcase-tab").forEach((btn) => {
+      tabs.forEach((btn) => {
+        const prefetchTab = () => {
+          const shotKey = btn.dataset.shot;
+          if (shotKey && shots[shotKey]) {
+            ensureSlide(shotKey, resolveTheme(mode), false);
+          }
+        };
+        btn.addEventListener("pointerenter", prefetchTab);
+        btn.addEventListener("focus", prefetchTab);
         btn.addEventListener("click", () => {
-          document.querySelectorAll(".showcase-tab").forEach((b) => b.classList.remove("active"));
+          tabs.forEach((b) => {
+            b.classList.remove("active");
+            b.setAttribute("aria-selected", "false");
+          });
           btn.classList.add("active");
+          btn.setAttribute("aria-selected", "true");
           currentShot = btn.dataset.shot || "topology";
           renderShot();
         });
