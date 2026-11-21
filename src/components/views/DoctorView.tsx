@@ -275,7 +275,7 @@ export function DoctorView() {
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 disabled:opacity-65 disabled:cursor-wait text-xs transition cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingDoctor ? "animate-spin" : ""}`} />
-            <span>{loadingDoctor ? t("doctor.runningBtn") : t("doctor.rerunBtn")}</span>
+            <span>{t("doctor.rerunBtn")}</span>
           </button>
         </div>
         <pre
