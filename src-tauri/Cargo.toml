@@ -1,6 +1,6 @@
 [package]
 name = "fvm-orbit"
-version = "0.1.2"
+version = "0.1.3"
 description = "FVM Orbit — Flutter SDK Spatial Cockpit & Menu Bar Switcher"
 authors = ["FVM Orbit"]
 edition = "2021"
