@@ -6,6 +6,7 @@ import {
   ChevronRight,
   FlaskConical,
   GitFork,
+  Info,
   Network,
   Sparkles,
 } from "lucide-react";
@@ -36,6 +37,7 @@ export function Sidebar() {
     setGlobalSdk,
     unlinkGlobalSdk,
     pushToast,
+    openAbout,
     openSettings,
     appVersionInfo,
     updateResult,
@@ -353,8 +355,16 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="px-1 text-xs text-[var(--muted-foreground)] flex items-center justify-between gap-2">
-          <span className="truncate">{t("sidebar.poweredBy")}</span>
+        <div className="px-0.5 text-xs text-[var(--muted-foreground)] flex items-center justify-between gap-1.5">
+          <button
+            type="button"
+            onClick={() => openAbout()}
+            title={t("sidebar.aboutTooltip")}
+            className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-md hover:bg-[var(--card)] hover:text-[var(--foreground)] transition cursor-pointer min-w-0"
+          >
+            <Info className="w-3 h-3 shrink-0 opacity-80" />
+            <span className="truncate">{t("sidebar.aboutBtn")}</span>
+          </button>
           <button
             type="button"
             onClick={() => openSettings("updates")}

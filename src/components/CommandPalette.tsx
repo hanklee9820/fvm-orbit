@@ -23,6 +23,7 @@ export function CommandPalette() {
     refreshAll,
     refreshDoctor,
     setAppIconStyle,
+    openAbout,
     openSettings,
     checkForUpdates,
     proxySettings,
@@ -119,6 +120,12 @@ export function CommandPalette() {
         action: () => openSettings("updates"),
       },
       {
+        id: "open-about",
+        title: t("cmdk.openAboutTitle"),
+        sub: t("cmdk.openAboutSub"),
+        action: () => openAbout(),
+      },
+      {
         id: "proxy-direct",
         title: t("cmdk.proxyDirectTitle"),
         sub: t("cmdk.proxyDirectSub"),
@@ -209,6 +216,7 @@ export function CommandPalette() {
     refreshDoctor,
     setAppIconStyle,
     setLanguage,
+    openAbout,
     openSettings,
     checkForUpdates,
     proxySettings,

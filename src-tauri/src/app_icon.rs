@@ -131,8 +131,8 @@ pub fn apply_dock_icon(app: &AppHandle, style: &str) -> Result<String, String> {
 
 pub fn init_app_icon(app: &AppHandle) {
     let saved = load_saved_icon_style(app);
-    if saved == "light" {
-        if let Err(err) = apply_dock_icon(app, "light") {
+    if saved == "light" || cfg!(debug_assertions) {
+        if let Err(err) = apply_dock_icon(app, &saved) {
             eprintln!("Warning: failed to restore saved app icon: {err}");
         }
     }

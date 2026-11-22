@@ -1,7 +1,9 @@
 use crate::i18n::{current_locale, AppLocale};
-use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager};
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub const MENU_ID_ABOUT: &str = "app_menu_about";
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub const MENU_ID_SETTINGS: &str = "app_menu_settings";
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -12,7 +14,6 @@ pub const MENU_ID_CHECK_UPDATES: &str = "app_menu_check_updates";
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 struct MenuStrings {
     about: &'static str,
-    about_comments: &'static str,
     check_updates: &'static str,
     settings: &'static str,
     services: &'static str,
@@ -42,7 +43,6 @@ impl MenuStrings {
         match locale {
             AppLocale::En => Self {
                 about: "About FVM Orbit",
-                about_comments: "Flutter SDK Spatial Cockpit & Menu Bar Switcher",
                 check_updates: "Check for Updates…",
                 settings: "Settings…",
                 services: "Services",
@@ -68,7 +68,6 @@ impl MenuStrings {
             },
             AppLocale::Zh => Self {
                 about: "关于 FVM Orbit",
-                about_comments: "Flutter SDK 空间指挥台与状态栏快切工具",
                 check_updates: "检查更新…",
                 settings: "设置…",
                 services: "服务",
@@ -109,14 +108,7 @@ pub fn focus_main_window(app: &AppHandle) {
 pub fn build_app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let s = MenuStrings::for_locale(current_locale());
 
-    let about_meta = AboutMetadata {
-        name: Some("FVM Orbit".to_string()),
-        version: Some(app.package_info().version.to_string()),
-        comments: Some(s.about_comments.to_string()),
-        ..Default::default()
-    };
-
-    let about = PredefinedMenuItem::about(app, Some(s.about), Some(about_meta))?;
+    let about = MenuItem::with_id(app, MENU_ID_ABOUT, s.about, true, None::<&str>)?;
     let check_updates = MenuItem::with_id(
         app,
         MENU_ID_CHECK_UPDATES,
@@ -231,7 +223,10 @@ pub fn init_app_menu(app: &AppHandle) -> tauri::Result<()> {
         refresh_app_menu(app)?;
         app.on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if id == MENU_ID_SETTINGS {
+            if id == MENU_ID_ABOUT {
+                focus_main_window(app);
+                let _ = app.emit("fvm://open-about", ());
+            } else if id == MENU_ID_SETTINGS {
                 focus_main_window(app);
                 let _ = app.emit("fvm://open-settings", ());
             } else if id == MENU_ID_CHECK_UPDATES {
@@ -255,6 +250,8 @@ mod tests {
 
     #[test]
     fn menu_strings_match_zh_and_en() {
+        assert_eq!(MenuStrings::for_locale(AppLocale::En).about, "About FVM Orbit");
+        assert_eq!(MenuStrings::for_locale(AppLocale::Zh).about, "关于 FVM Orbit");
         assert_eq!(MenuStrings::for_locale(AppLocale::En).settings, "Settings…");
         assert_eq!(MenuStrings::for_locale(AppLocale::Zh).settings, "设置…");
         assert_eq!(

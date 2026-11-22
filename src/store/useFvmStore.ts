@@ -362,6 +362,7 @@ interface FvmStoreState {
 
   cmdkOpen: boolean;
   menubarOpen: boolean;
+  aboutOpen: boolean;
   settingsOpen: boolean;
   settingsTab: SettingsTabId;
   proxySettings: ProxySettings;
@@ -383,6 +384,8 @@ interface FvmStoreState {
   setLanguage: (pref: LanguagePreference, silent?: boolean) => Promise<void>;
   setCmdkOpen: (open: boolean) => void;
   setMenubarOpen: (open: boolean) => void;
+  openAbout: () => void;
+  closeAbout: () => void;
   openSettings: (tab?: SettingsTabId) => void;
   closeSettings: () => void;
   setSettingsTab: (tab: SettingsTabId) => void;
@@ -495,6 +498,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   cmdkOpen: false,
   menubarOpen: false,
+  aboutOpen: false,
   settingsOpen: false,
   settingsTab: "proxy",
   proxySettings: loadProxySettings(),
@@ -599,12 +603,22 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     }
   },
 
-  setCmdkOpen: (open) => set({ cmdkOpen: open }),
+  setCmdkOpen: (open) =>
+    set(open ? { cmdkOpen: true, aboutOpen: false } : { cmdkOpen: false }),
   setMenubarOpen: (open) => set({ menubarOpen: open }),
+  openAbout: () =>
+    set({
+      aboutOpen: true,
+      settingsOpen: false,
+      cmdkOpen: false,
+      menubarOpen: false,
+    }),
+  closeAbout: () => set({ aboutOpen: false }),
   openSettings: (tab) => {
     set((s) => ({
       settingsOpen: true,
       settingsTab: tab ?? s.settingsTab,
+      aboutOpen: false,
       cmdkOpen: false,
       menubarOpen: false,
     }));

@@ -183,6 +183,7 @@ export async function subscribeNativeEvents(handlers: {
   onNavigate: (tab: string) => void;
   onRefresh: () => void;
   onTraySetGlobal: (version: string) => void;
+  onOpenAbout: () => void;
   onOpenSettings: () => void;
   onCheckUpdates: () => void;
 }): Promise<UnlistenFn[]> {
@@ -192,6 +193,7 @@ export async function subscribeNativeEvents(handlers: {
     listen<string>("fvm://navigate", (e) => handlers.onNavigate(e.payload)),
     listen("fvm://refresh", () => handlers.onRefresh()),
     listen<string>("fvm://tray-set-global", (e) => handlers.onTraySetGlobal(e.payload)),
+    listen("fvm://open-about", () => handlers.onOpenAbout()),
     listen("fvm://open-settings", () => handlers.onOpenSettings()),
     listen("fvm://check-updates", () => handlers.onCheckUpdates()),
   ]);

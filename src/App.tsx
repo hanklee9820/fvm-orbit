@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { AboutModal } from "./components/AboutModal";
 import { CliConsole } from "./components/CliConsole";
 import { CommandPalette } from "./components/CommandPalette";
 import { MenuBarPopover } from "./components/MenuBarPopover";
@@ -28,6 +29,8 @@ export function App() {
     setGlobalSdk,
     setCmdkOpen,
     setMenubarOpen,
+    openAbout,
+    closeAbout,
     openSettings,
     closeSettings,
     checkForUpdates,
@@ -47,6 +50,7 @@ export function App() {
       },
       onRefresh: () => void refreshAll(),
       onTraySetGlobal: (ver) => void setGlobalSdk(ver),
+      onOpenAbout: () => openAbout(),
       onOpenSettings: () => openSettings(),
       onCheckUpdates: () => void checkForUpdates({ manual: true, openModal: true }),
     }).then((fns) => {
@@ -63,6 +67,7 @@ export function App() {
       } else if (e.key === "Escape") {
         setCmdkOpen(false);
         setMenubarOpen(false);
+        closeAbout();
         closeSettings();
       }
     };
@@ -92,6 +97,8 @@ export function App() {
     setGlobalSdk,
     setCmdkOpen,
     setMenubarOpen,
+    openAbout,
+    closeAbout,
     openSettings,
     closeSettings,
     checkForUpdates,
@@ -132,6 +139,7 @@ export function App() {
       </div>
 
       <MenuBarPopover />
+      <AboutModal />
       <SettingsModal />
       <CommandPalette />
       <ToastContainer />

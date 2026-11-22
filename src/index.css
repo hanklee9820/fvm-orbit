@@ -37,6 +37,17 @@
   --logo-orbit-start: #8b5cf6;
   --logo-orbit-end: #7dd3fc;
   --logo-node: #54c5f8;
+  --about-hero-bg: radial-gradient(circle at 22% 16%, rgba(139, 92, 246, 0.22), transparent 56%),
+    radial-gradient(circle at 78% 20%, rgba(56, 189, 248, 0.17), transparent 54%),
+    linear-gradient(180deg, rgba(18, 21, 28, 0.98) 0%, rgba(23, 27, 36, 0.98) 100%);
+  --about-icon-glow: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.42) 0%,
+    rgba(56, 189, 248, 0.24) 48%,
+    transparent 74%
+  );
+  --about-orbit-opacity: 0.36;
+  --about-orbit-lead-opacity: 0.85;
 }
 
 :root[data-theme="light"] {
@@ -76,6 +87,17 @@
   --logo-orbit-start: #553b90;
   --logo-orbit-end: #0284c7;
   --logo-node: #0284c7;
+  --about-hero-bg: radial-gradient(circle at 22% 16%, rgba(124, 82, 227, 0.13), transparent 56%),
+    radial-gradient(circle at 78% 20%, rgba(2, 132, 199, 0.11), transparent 54%),
+    linear-gradient(180deg, #f3f6fc 0%, #ffffff 100%);
+  --about-icon-glow: radial-gradient(
+    circle,
+    rgba(124, 82, 227, 0.24) 0%,
+    rgba(14, 165, 233, 0.18) 48%,
+    transparent 74%
+  );
+  --about-orbit-opacity: 0.26;
+  --about-orbit-lead-opacity: 0.68;
 }
 
 * {
@@ -162,4 +184,53 @@ body,
 
 .glass-elevated {
   box-shadow: 0 20px 52px -14px rgba(0, 0, 0, 0.42);
+}
+
+@keyframes aboutBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes aboutCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes orbitNodeGlow {
+  0%, 100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-about-backdrop {
+  animation: aboutBackdropIn 150ms ease-out;
+}
+
+.animate-about-card {
+  animation: aboutCardIn 210ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.orbit-node-pulse {
+  animation: orbitNodeGlow 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-about-backdrop,
+  .animate-about-card,
+  .orbit-node-pulse {
+    animation: none;
+  }
 }

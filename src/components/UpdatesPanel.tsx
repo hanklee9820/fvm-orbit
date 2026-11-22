@@ -6,6 +6,7 @@ import {
   ExternalLink,
   FolderOpen,
   Globe,
+  Info,
   Loader2,
   PackageCheck,
   RefreshCw,
@@ -153,6 +154,7 @@ export function UpdatesPanel() {
     downloadRecommendedUpdate,
     cancelUpdateDownload,
     openDownloadedInstaller,
+    openAbout,
     setSettingsTab,
   } = useFvmStore();
 
@@ -186,14 +188,24 @@ export function UpdatesPanel() {
             {t("settings.updates.subtitle")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void openExternalUrl(repoUrl)}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 text-xs font-medium transition cursor-pointer shrink-0"
-        >
-          <span>{t("settings.updates.openRepoBtn")}</span>
-          <ExternalLink className="w-3 h-3" />
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => openAbout()}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 text-xs font-medium transition cursor-pointer shrink-0"
+          >
+            <Info className="w-3 h-3" />
+            <span>{t("settings.updates.openAboutBtn")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void openExternalUrl(repoUrl)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 text-xs font-medium transition cursor-pointer shrink-0"
+          >
+            <span>{t("settings.updates.openRepoBtn")}</span>
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
       {/* App Identity & Manual Check Card */}

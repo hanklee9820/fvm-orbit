@@ -44,6 +44,7 @@ struct TrayStrings {
     refresh: &'static str,
     check_updates: &'static str,
     settings: &'static str,
+    about: &'static str,
     quit: &'static str,
 }
 
@@ -61,6 +62,7 @@ impl TrayStrings {
                 refresh: "刷新本地 FVM 状态",
                 check_updates: "检查更新…",
                 settings: "设置…",
+                about: "关于 FVM Orbit",
                 quit: "退出 FVM Orbit",
             },
             AppLocale::En => Self {
@@ -74,6 +76,7 @@ impl TrayStrings {
                 refresh: "Refresh FVM Status",
                 check_updates: "Check for Updates…",
                 settings: "Settings…",
+                about: "About FVM Orbit",
                 quit: "Quit FVM Orbit",
             },
         }
@@ -153,6 +156,7 @@ pub fn build_tray_menu(
         None::<&str>,
     )?;
     let settings_item = MenuItem::with_id(app, "tray_settings", s.settings, true, None::<&str>)?;
+    let about_item = MenuItem::with_id(app, "tray_about", s.about, true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "tray_quit", s.quit, true, None::<&str>)?;
 
@@ -171,6 +175,7 @@ pub fn build_tray_menu(
             &refresh_item,
             &check_updates_item,
             &settings_item,
+            &about_item,
             &sep3,
             &quit_item,
         ],
@@ -212,6 +217,9 @@ pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
             } else if id == "tray_settings" {
                 show_main_window(app, None);
                 let _ = app.emit("fvm://open-settings", ());
+            } else if id == "tray_about" {
+                show_main_window(app, None);
+                let _ = app.emit("fvm://open-about", ());
             } else if id == "tray_quit" {
                 app.exit(0);
             } else if let Some(ver) = id.strip_prefix("set_global::") {
