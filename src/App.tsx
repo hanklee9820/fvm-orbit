@@ -42,6 +42,13 @@ export function App() {
     let cleanups: (() => void)[] = [];
     void subscribeNativeEvents({
       onFsChanged: () => {
+        const state = useFvmStore.getState();
+        if (
+          Object.keys(state.installingSdks).length > 0 ||
+          state.activeRequestIds.length > 0
+        ) {
+          return;
+        }
         void refreshAll(true);
       },
       onNavigate: (tab) => {

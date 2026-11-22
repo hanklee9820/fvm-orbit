@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -404,7 +404,14 @@ pub async fn fetch_workspace_snapshot(extra_project_paths: Vec<String>) -> Resul
     );
 
     let ctx_val = ctx_res?;
-    let list_val = list_res?;
+    let list_val = match list_res {
+        Ok(v) => v,
+        Err(e) if e.contains("PathNotFoundException") => {
+            tokio::time::sleep(Duration::from_millis(350)).await;
+            run_fvm_json(&["api", "list", "--compress"], None).await?
+        }
+        Err(e) => return Err(e),
+    };
     let cleanup_val = cleanup_res.unwrap_or_else(|_| serde_json::json!({}));
 
     let c = ctx_val.get("context").unwrap_or(&ctx_val);

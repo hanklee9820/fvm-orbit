@@ -814,6 +814,11 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      if (silent && get().snapshot) {
+        set({ loading: false });
+        console.warn("[FVM Orbit] Silent workspace refresh failed:", msg);
+        return;
+      }
       set({ loading: false, error: msg });
       get().pushToast(
         translate(get().resolvedLocale, "toast.readFvmFailed", { err: msg }),
