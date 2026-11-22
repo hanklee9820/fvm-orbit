@@ -9,7 +9,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { testProxyConnectivity } from "../services/fvmBridge";
 import {
@@ -79,6 +79,9 @@ export function SettingsModal() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ProxyTestResult | null>(null);
+  const [redetectSpinSeq, setRedetectSpinSeq] = useState(0);
+  const [redetectSpinning, setRedetectSpinning] = useState(false);
+  const redetectSpinTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (settingsOpen) {
@@ -86,6 +89,24 @@ export function SettingsModal() {
       setTestResult(null);
     }
   }, [settingsOpen, proxySettings]);
+
+  useEffect(() => {
+    if (!settingsOpen || settingsTab !== "proxy" || draft.mode !== "system") {
+      if (redetectSpinTimerRef.current !== null) {
+        window.clearTimeout(redetectSpinTimerRef.current);
+        redetectSpinTimerRef.current = null;
+      }
+      setRedetectSpinning(false);
+    }
+  }, [settingsOpen, settingsTab, draft.mode]);
+
+  useEffect(() => {
+    return () => {
+      if (redetectSpinTimerRef.current !== null) {
+        window.clearTimeout(redetectSpinTimerRef.current);
+      }
+    };
+  }, []);
 
   const dirty = !settingsEqual(draft, proxySettings);
   const effectiveIcon = resolveEffectiveAppIcon(appIconStyle, theme);
@@ -183,6 +204,19 @@ export function SettingsModal() {
     } finally {
       setTesting(false);
     }
+  };
+
+  const handleRedetectSystemProxy = () => {
+    setRedetectSpinSeq((seq) => seq + 1);
+    setRedetectSpinning(true);
+    if (redetectSpinTimerRef.current !== null) {
+      window.clearTimeout(redetectSpinTimerRef.current);
+    }
+    redetectSpinTimerRef.current = window.setTimeout(() => {
+      setRedetectSpinning(false);
+      redetectSpinTimerRef.current = null;
+    }, 560);
+    void refreshSystemProxy();
   };
 
   const iconNavBadge =
@@ -556,12 +590,27 @@ export function SettingsModal() {
                       </span>
                       <button
                         type="button"
-                        onClick={() => void refreshSystemProxy()}
+                        onClick={handleRedetectSystemProxy}
                         disabled={detectingSystemProxy}
                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 transition cursor-pointer disabled:opacity-50"
                       >
                         <RefreshCw
-                          className={`w-3 h-3 ${detectingSystemProxy ? "animate-spin" : ""}`}
+                          key={redetectSpinSeq}
+                          onAnimationEnd={(e) => {
+                            if (e.animationName !== "spinOnce") return;
+                            if (redetectSpinTimerRef.current !== null) {
+                              window.clearTimeout(redetectSpinTimerRef.current);
+                              redetectSpinTimerRef.current = null;
+                            }
+                            setRedetectSpinning(false);
+                          }}
+                          className={`w-3 h-3 ${
+                            redetectSpinning
+                              ? "animate-spin-once"
+                              : detectingSystemProxy
+                                ? "animate-spin"
+                                : ""
+                          }`}
                         />
                         <span>{t("settings.proxy.redetect")}</span>
                       </button>

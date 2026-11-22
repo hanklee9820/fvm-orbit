@@ -171,6 +171,19 @@ body,
   animation: softFadeIn 220ms ease-out;
 }
 
+@keyframes spinOnce {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-once {
+  animation: spinOnce 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @keyframes dashFlow {
   to {
     stroke-dashoffset: -24;
@@ -230,7 +243,8 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .animate-about-backdrop,
   .animate-about-card,
-  .orbit-node-pulse {
+  .orbit-node-pulse,
+  .animate-spin-once {
     animation: none;
   }
 }
