@@ -351,6 +351,7 @@ interface FvmStoreState {
   consoleOpen: boolean;
   logs: CliLogEntry[];
   activeRequestIds: string[];
+  installingSdks: Record<string, string>;
 
   spawnMode: "spawn" | "flavor" | "exec";
   spawnCommand: string;
@@ -411,7 +412,12 @@ interface FvmStoreState {
   refreshReleases: (channel?: string) => Promise<void>;
   refreshDoctor: (cwd?: string, manual?: boolean) => Promise<void>;
 
-  runFvmArgs: (args: string[], cwd?: string, successToast?: string) => Promise<number>;
+  runFvmArgs: (
+    args: string[],
+    cwd?: string,
+    successToast?: string,
+    requestIdOverride?: string
+  ) => Promise<number>;
   cancelRequest: (requestId: string) => Promise<void>;
 
   bindProjectDialog: () => Promise<void>;
@@ -487,6 +493,7 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
   consoleOpen: true,
   logs: [],
   activeRequestIds: [],
+  installingSdks: {},
 
   spawnMode: "spawn",
   spawnCommand: "test",
@@ -857,9 +864,9 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     }
   },
 
-  runFvmArgs: async (args, cwd, successToast) => {
+  runFvmArgs: async (args, cwd, successToast, requestIdOverride) => {
     if (!isTauriRuntime()) return -1;
-    const requestId = genId("req");
+    const requestId = requestIdOverride ?? genId("req");
     const cmdStr = `fvm ${args.join(" ")}`;
 
     const entry: CliLogEntry = {
@@ -1015,15 +1022,42 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
 
   installSdk: async (version, options) => {
     const clean = version.trim();
-    if (!clean) return;
+    if (!clean || !isTauriRuntime()) return;
+
+    if (get().installingSdks[clean]) {
+      set({ consoleOpen: true });
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.sdkAlreadyInstalling", { version: clean }),
+        "info"
+      );
+      return;
+    }
+
+    const requestId = genId("req");
     const args = ["install", clean];
     if (options?.noSetup) args.push("--no-setup");
 
-    const code = await get().runFvmArgs(
-      args,
-      undefined,
-      translate(get().resolvedLocale, "toast.sdkInstalled", { version: clean })
-    );
+    set((s) => ({
+      installingSdks: { ...s.installingSdks, [clean]: requestId },
+    }));
+
+    let code = -1;
+    try {
+      code = await get().runFvmArgs(
+        args,
+        undefined,
+        translate(get().resolvedLocale, "toast.sdkInstalled", { version: clean }),
+        requestId
+      );
+    } finally {
+      set((s) => {
+        if (s.installingSdks[clean] !== requestId) return s;
+        const next = { ...s.installingSdks };
+        delete next[clean];
+        return { installingSdks: next };
+      });
+    }
+
     if (code === 0 && options?.setGlobal) {
       await get().setGlobalSdk(clean);
     }

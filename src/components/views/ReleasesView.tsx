@@ -1,4 +1,4 @@
-import { Check, Download, FolderOpen, Globe, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Check, Download, FolderOpen, Globe, Loader2, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useI18n } from "../../i18n/useI18n";
 import { revealPathInFinder } from "../../services/fvmBridge";
@@ -18,6 +18,7 @@ export function ReleasesView() {
     snapshot,
     releases,
     loadingReleases,
+    installingSdks,
     installSdk,
     removeSdk,
     setGlobalSdk,
@@ -32,6 +33,8 @@ export function ReleasesView() {
 
   const cachedList = snapshot?.versions ?? [];
   const installedSet = useMemo(() => new Set(cachedList.map((v) => v.name)), [cachedList]);
+  const trimmedCustom = customInput.trim();
+  const isCustomInstalling = Boolean(trimmedCustom && installingSdks[trimmedCustom]);
 
   const refCountMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -95,6 +98,7 @@ export function ReleasesView() {
       {/* Channel Spotlight Strip */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {channels.map((ch) => {
+          const isChannelInstalling = Boolean(installingSdks[ch.ver] || installingSdks[ch.name]);
           const cachedName = installedSet.has(ch.ver)
             ? ch.ver
             : installedSet.has(ch.name)
@@ -119,7 +123,17 @@ export function ReleasesView() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                {cachedName ? (
+                {isChannelInstalling ? (
+                  <button
+                    type="button"
+                    disabled
+                    aria-busy="true"
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-[var(--warning)]/15 text-[var(--warning)] text-xs font-semibold cursor-not-allowed"
+                  >
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{t("common.installing")}</span>
+                  </button>
+                ) : cachedName ? (
                   <button
                     type="button"
                     onClick={() => void setGlobalSdk(cachedName)}
@@ -151,8 +165,8 @@ export function ReleasesView() {
           value={customInput}
           onChange={(e) => setCustomInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && customInput.trim()) {
-              void installSdk(customInput.trim(), { noSetup });
+            if (e.key === "Enter" && trimmedCustom && !isCustomInstalling) {
+              void installSdk(trimmedCustom, { noSetup });
               setCustomInput("");
             }
           }}
@@ -170,14 +184,20 @@ export function ReleasesView() {
         </label>
         <button
           type="button"
+          disabled={isCustomInstalling}
           onClick={() => {
-            if (!customInput.trim()) return;
-            void installSdk(customInput.trim(), { noSetup });
+            if (!trimmedCustom || isCustomInstalling) return;
+            void installSdk(trimmedCustom, { noSetup });
             setCustomInput("");
           }}
-          className="px-3.5 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90"
+          className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+            isCustomInstalling
+              ? "bg-[var(--warning)]/15 text-[var(--warning)] cursor-not-allowed"
+              : "bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer hover:opacity-90"
+          }`}
         >
-          fvm install
+          {isCustomInstalling && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          <span>{isCustomInstalling ? t("common.installing") : "fvm install"}</span>
         </button>
       </div>
 
@@ -198,76 +218,92 @@ export function ReleasesView() {
           </div>
         ) : (
           <div className="divide-y divide-[var(--border)]">
-            {cachedList.map((sdk) => (
-              <div
-                key={sdk.name}
-                className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-[var(--sidebar)]/50 transition"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
-                  <span className="font-mono text-sm font-semibold">{sdk.name}</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono ${channelBadge(sdk.releaseFromChannel ?? sdk.sdkType)}`}>
-                    {sdk.releaseFromChannel ?? sdk.sdkType}
-                  </span>
-                  {sdk.isGlobal && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[var(--primary)]/15 text-[var(--primary)]">
-                      <Globe className="w-3 h-3" />
-                      <span>Global</span>
+            {cachedList.map((sdk) => {
+              const isSdkInstalling = Boolean(installingSdks[sdk.name]);
+              return (
+                <div
+                  key={sdk.name}
+                  className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 hover:bg-[var(--sidebar)]/50 transition"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
+                    <span className="font-mono text-sm font-semibold">{sdk.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-mono ${channelBadge(sdk.releaseFromChannel ?? sdk.sdkType)}`}>
+                      {sdk.releaseFromChannel ?? sdk.sdkType}
                     </span>
-                  )}
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs ${
-                      sdk.isSetup
-                        ? "bg-[var(--success)]/15 text-[var(--success)]"
-                        : "bg-[var(--warning)]/15 text-[var(--warning)]"
-                    }`}
-                  >
-                    {sdk.isSetup ? t("releases.readyBadge") : t("releases.notSetupBadge")}
-                  </span>
-                </div>
+                    {sdk.isGlobal && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[var(--primary)]/15 text-[var(--primary)]">
+                        <Globe className="w-3 h-3" />
+                        <span>Global</span>
+                      </span>
+                    )}
+                    {isSdkInstalling ? (
+                      <span
+                        aria-busy="true"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[var(--warning)]/15 text-[var(--warning)] font-medium"
+                      >
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>{t("common.installing")}</span>
+                      </span>
+                    ) : (
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs ${
+                          sdk.isSetup
+                            ? "bg-[var(--success)]/15 text-[var(--success)]"
+                            : "bg-[var(--warning)]/15 text-[var(--warning)]"
+                        }`}
+                      >
+                        {sdk.isSetup ? t("releases.readyBadge") : t("releases.notSetupBadge")}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-4 text-xs text-[var(--muted-foreground)] font-mono">
-                  <span>Dart {sdk.dartSdkVersion ?? "--"}</span>
-                  <span className="tabular-nums">{formatBytes(sdk.sizeBytes)}</span>
-                  <span>{t("releases.projectCount", { count: refCountMap[sdk.name] ?? 0 })}</span>
-                </div>
+                  <div className="flex items-center gap-4 text-xs text-[var(--muted-foreground)] font-mono">
+                    <span>Dart {sdk.dartSdkVersion ?? "--"}</span>
+                    <span className="tabular-nums">{formatBytes(sdk.sizeBytes)}</span>
+                    <span>{t("releases.projectCount", { count: refCountMap[sdk.name] ?? 0 })}</span>
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    title={t("releases.revealInFinder")}
-                    onClick={() => void revealPathInFinder(sdk.directory)}
-                    className="p-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                  </button>
-                  {sdk.isGlobal ? (
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void unlinkGlobalSdk()}
-                      className="px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs cursor-pointer"
+                      title={t("releases.revealInFinder")}
+                      onClick={() => void revealPathInFinder(sdk.directory)}
+                      className="p-1.5 rounded-lg bg-[var(--background)] border border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] cursor-pointer"
                     >
-                      {t("releases.unlinkGlobal")}
+                      <FolderOpen className="w-3.5 h-3.5" />
                     </button>
-                  ) : (
+                    {sdk.isGlobal ? (
+                      <button
+                        type="button"
+                        disabled={isSdkInstalling}
+                        onClick={() => void unlinkGlobalSdk()}
+                        className="px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {t("releases.unlinkGlobal")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSdkInstalling}
+                        onClick={() => void setGlobalSdk(sdk.name)}
+                        className="px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {t("releases.setGlobal")}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => void setGlobalSdk(sdk.name)}
-                      className="px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs cursor-pointer hover:opacity-90"
+                      disabled={isSdkInstalling}
+                      onClick={() => void removeSdk(sdk.name)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] hover:bg-[var(--error)]/10 text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {t("releases.setGlobal")}
+                      <Trash2 className="w-3 h-3" />
+                      <span>{t("common.remove")}</span>
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void removeSdk(sdk.name)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] hover:bg-[var(--error)]/10 text-xs cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    <span>{t("common.remove")}</span>
-                  </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -340,8 +376,16 @@ export function ReleasesView() {
             <tbody className="divide-y divide-[var(--border)]">
               {filteredReleases.map((r) => {
                 const isInst = installedSet.has(r.version);
+                const isInstalling = Boolean(installingSdks[r.version]);
                 return (
-                  <tr key={`${r.version}-${r.hash}`} className="hover:bg-[var(--sidebar)]/50 transition">
+                  <tr
+                    key={`${r.version}-${r.hash}`}
+                    className={
+                      isInstalling
+                        ? "bg-[var(--warning)]/5 transition"
+                        : "hover:bg-[var(--sidebar)]/50 transition"
+                    }
+                  >
                     <td className="py-2.5 px-4 font-mono font-semibold">
                       <span>{r.version}</span>
                       {r.activeChannel && (
@@ -365,7 +409,15 @@ export function ReleasesView() {
                       {r.hash.slice(0, 7)} · {r.dartSdkArch || "arm64"}
                     </td>
                     <td className="py-2.5 px-4 text-right">
-                      {isInst ? (
+                      {isInstalling ? (
+                        <span
+                          aria-busy="true"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--warning)]/15 text-[var(--warning)] font-medium whitespace-nowrap"
+                        >
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>{t("common.installing")}</span>
+                        </span>
+                      ) : isInst ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--success)]/15 text-[var(--success)] font-medium">
                           <Check className="w-3.5 h-3.5" />
                           <span>{t("common.cached")}</span>

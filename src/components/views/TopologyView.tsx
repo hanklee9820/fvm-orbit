@@ -1,4 +1,4 @@
-import { Copy, FolderPlus, Play, Plus, Trash2 } from "lucide-react";
+import { Copy, FolderPlus, Loader2, Play, Plus, Trash2 } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n/useI18n";
 import { formatBytes, useFvmStore } from "../../store/useFvmStore";
@@ -42,6 +42,7 @@ export function TopologyView() {
     bindProjectDialog,
     removeExtraProject,
     applyProjectBinding,
+    installingSdks,
     installSdk,
     pushToast,
   } = useFvmStore();
@@ -191,6 +192,7 @@ export function TopologyView() {
     .filter((v) => cleanup.removable.includes(v.name))
     .reduce((acc, v) => acc + v.sizeBytes, 0);
   const latestStable = releases?.channels.stable?.version ?? "3.50.1";
+  const isInstallingLatest = Boolean(installingSdks[latestStable]);
 
   const previewCmd = (() => {
     if (!selectedProject || !targetSdk) return "";
@@ -321,10 +323,21 @@ export function TopologyView() {
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
             <button
               type="button"
+              disabled={isInstallingLatest}
+              aria-busy={isInstallingLatest}
               onClick={() => void installSdk(latestStable, { setGlobal: true })}
-              className="px-4 py-2 rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] text-xs font-semibold cursor-pointer hover:opacity-90 transition"
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+                isInstallingLatest
+                  ? "bg-[var(--warning)]/15 text-[var(--warning)] cursor-not-allowed"
+                  : "bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer hover:opacity-90"
+              }`}
             >
-              {t("topology.emptyInstallBtn", { version: latestStable })}
+              {isInstallingLatest && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>
+                {isInstallingLatest
+                  ? t("common.installing")
+                  : t("topology.emptyInstallBtn", { version: latestStable })}
+              </span>
             </button>
             <button
               type="button"
@@ -560,10 +573,21 @@ export function TopologyView() {
                   <div>{t("topology.noCachedSdks")}</div>
                   <button
                     type="button"
+                    disabled={isInstallingLatest}
+                    aria-busy={isInstallingLatest}
                     onClick={() => void installSdk(latestStable, { setGlobal: true })}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-[var(--primary-foreground)] font-medium cursor-pointer"
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition ${
+                      isInstallingLatest
+                        ? "bg-[var(--warning)]/15 text-[var(--warning)] cursor-not-allowed"
+                        : "bg-[var(--primary)] text-[var(--primary-foreground)] cursor-pointer hover:opacity-90"
+                    }`}
                   >
-                    {t("topology.installVersionBtn", { version: latestStable })}
+                    {isInstallingLatest && <Loader2 className="w-3 h-3 animate-spin" />}
+                    <span>
+                      {isInstallingLatest
+                        ? t("common.installing")
+                        : t("topology.installVersionBtn", { version: latestStable })}
+                    </span>
                   </button>
                 </div>
               ) : (

@@ -1,4 +1,4 @@
-import { Download, Plus, Save, Trash2 } from "lucide-react";
+import { Download, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useI18n } from "../../i18n/useI18n";
 import { useFvmStore } from "../../store/useFvmStore";
@@ -9,6 +9,7 @@ export function ConfigView() {
     snapshot,
     addFork,
     removeFork,
+    installingSdks,
     installSdk,
     saveGlobalConfig,
   } = useFvmStore();
@@ -98,39 +99,57 @@ export function ConfigView() {
             </div>
           ) : (
             <div className="space-y-2">
-              {forks.map((fk) => (
-                <div
-                  key={fk.name}
-                  className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] flex flex-wrap items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="px-2 py-0.5 rounded bg-[var(--chart-4)]/15 text-[var(--chart-4)] font-mono text-xs font-semibold shrink-0">
-                      {fk.name}
-                    </span>
-                    <span className="text-xs font-mono text-[var(--muted-foreground)] truncate">
-                      {fk.url}
-                    </span>
+              {forks.map((fk) => {
+                const forkTarget = `${fk.name}/stable`;
+                const isForkInstalling = Boolean(installingSdks[forkTarget]);
+                return (
+                  <div
+                    key={fk.name}
+                    className="p-3 rounded-xl bg-[var(--background)] border border-[var(--border)] flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="px-2 py-0.5 rounded bg-[var(--chart-4)]/15 text-[var(--chart-4)] font-mono text-xs font-semibold shrink-0">
+                        {fk.name}
+                      </span>
+                      <span className="text-xs font-mono text-[var(--muted-foreground)] truncate">
+                        {fk.url}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={isForkInstalling}
+                        aria-busy={isForkInstalling}
+                        onClick={() => void installSdk(forkTarget)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono transition ${
+                          isForkInstalling
+                            ? "bg-[var(--warning)]/15 text-[var(--warning)] cursor-not-allowed"
+                            : "bg-[var(--secondary)] text-[var(--secondary-foreground)] cursor-pointer hover:opacity-90"
+                        }`}
+                      >
+                        {isForkInstalling ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Download className="w-3 h-3" />
+                        )}
+                        <span>
+                          {isForkInstalling
+                            ? t("common.installing")
+                            : t("config.installForkBtn", { name: fk.name })}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeFork(fk.name)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] text-xs cursor-pointer hover:bg-[var(--error)]/10"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>{t("common.delete")}</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => void installSdk(`${fk.name}/stable`)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--secondary)] text-[var(--secondary-foreground)] text-xs font-mono cursor-pointer"
-                    >
-                      <Download className="w-3 h-3" />
-                      <span>{t("config.installForkBtn", { name: fk.name })}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void removeFork(fk.name)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[var(--error)]/40 text-[var(--error)] text-xs cursor-pointer hover:bg-[var(--error)]/10"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>{t("common.delete")}</span>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
