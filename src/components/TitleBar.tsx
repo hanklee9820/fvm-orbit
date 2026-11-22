@@ -1,7 +1,17 @@
-import { Languages, Monitor, Moon, PanelTop, RefreshCw, Search, Settings, Sun } from "lucide-react";
+import {
+  ArrowUpCircle,
+  Languages,
+  Monitor,
+  Moon,
+  PanelTop,
+  RefreshCw,
+  Search,
+  Settings,
+  Sun,
+} from "lucide-react";
 import { BrandLogo } from "./BrandLogo";
 import { useI18n } from "../i18n/useI18n";
-import { getProxyDisplaySummary, useFvmStore } from "../store/useFvmStore";
+import { getProxyDisplaySummary, hasVisibleAppUpdate, useFvmStore } from "../store/useFvmStore";
 import { isTauriRuntime } from "../services/fvmBridge";
 import type { ThemeMode } from "../types/fvm";
 
@@ -19,8 +29,12 @@ export function TitleBar() {
     openSettings,
     proxySettings,
     systemProxyInfo,
+    updateResult,
+    skippedUpdateVersion,
     refreshAll,
   } = useFvmStore();
+
+  const hasUpdate = hasVisibleAppUpdate(updateResult, skippedUpdateVersion);
 
   const fvmVer = snapshot?.context.fvmVersion ?? "4.3.2";
   const osRaw = (snapshot?.context.osLabel ?? "").toLowerCase();
@@ -77,11 +91,13 @@ export function TitleBar() {
         <BrandLogo className="w-6 h-6 shrink-0" />
 
         <div data-tauri-drag-region className="flex items-center gap-2 min-w-0">
-          <span className="font-semibold text-sm tracking-tight truncate">FVM Orbit</span>
-          <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono">
+          <span className="font-semibold text-sm tracking-tight whitespace-nowrap shrink-0">
+            FVM Orbit
+          </span>
+          <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--secondary)] text-[var(--secondary-foreground)] font-mono whitespace-nowrap shrink-0">
             CLI {fvmVer}
           </span>
-          <span className="hidden lg:inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--muted-foreground)] font-mono">
+          <span className="hidden lg:inline-flex items-center text-xs px-2 py-0.5 rounded-full bg-[var(--card)] border border-[var(--border)] text-[var(--muted-foreground)] font-mono whitespace-nowrap shrink-0">
             {archLabel}
           </span>
         </div>
@@ -102,8 +118,22 @@ export function TitleBar() {
         </kbd>
       </button>
 
-      {/* Right: Proxy Pill + Refresh + Language + Theme + Settings + Quick Switch Popover */}
+      {/* Right: Update Pill + Proxy Pill + Refresh + Language + Theme + Settings + Quick Switch Popover */}
       <div className="flex items-center gap-2 shrink-0">
+        {hasUpdate && updateResult && (
+          <button
+            type="button"
+            onClick={() => openSettings("updates")}
+            title={t("titleBar.updateAvailableTooltip", { version: updateResult.latestVersion })}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--primary)]/14 border border-[var(--primary)]/50 hover:bg-[var(--primary)]/20 text-xs font-semibold text-[var(--primary)] transition cursor-pointer"
+          >
+            <ArrowUpCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="font-mono truncate">
+              {t("titleBar.updateAvailableBadge", { version: updateResult.latestVersion })}
+            </span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => openSettings("proxy")}
@@ -156,13 +186,16 @@ export function TitleBar() {
           onClick={() => openSettings()}
           title={t("titleBar.settingsTooltip")}
           aria-label={t("titleBar.settingsAria")}
-          className={`p-1.5 rounded-lg border transition cursor-pointer ${
+          className={`relative p-1.5 rounded-lg border transition cursor-pointer ${
             settingsOpen
               ? "bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]"
               : "bg-[var(--card)] border-[var(--border)] hover:border-[var(--primary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
           }`}
         >
           <Settings className="w-3.5 h-3.5" />
+          {hasUpdate && !settingsOpen && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[var(--primary)] ring-2 ring-[var(--sidebar)] pulse-dot" />
+          )}
         </button>
 
         <button

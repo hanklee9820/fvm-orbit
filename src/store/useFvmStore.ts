@@ -5,14 +5,19 @@ import {
   applyNativeAppIcon,
   applyZshrcPathFix,
   cancelFvmRequest,
+  cancelUpdateDownload as cancelUpdateDownloadBridge,
+  checkForAppUpdates,
   detectSystemProxy,
+  downloadUpdateAsset,
   executeSpawnMatrix,
   fetchAppLanguage,
+  fetchAppVersion,
   fetchDoctorReport,
   fetchProxySettings,
   fetchReleases,
   fetchWorkspaceSnapshot,
   isTauriRuntime,
+  openDownloadedUpdate,
   pickDirectoryDialog,
   saveAppLanguage,
   saveProxySettings,
@@ -20,6 +25,7 @@ import {
 } from "../services/fvmBridge";
 import type {
   AppIconStyle,
+  AppVersionInfo,
   CliLogEntry,
   DoctorOutput,
   LanguagePreference,
@@ -33,6 +39,8 @@ import type {
   TabId,
   ThemeMode,
   ToastItem,
+  UpdateCheckResult,
+  UpdateDownloadState,
   WorkspaceSnapshot,
 } from "../types/fvm";
 
@@ -41,6 +49,70 @@ const THEME_KEY = "fvm_orbit_theme";
 const APP_ICON_STYLE_KEY = "fvm_orbit_app_icon_style";
 const PROXY_SETTINGS_KEY = "fvm_orbit_proxy_settings";
 const LANGUAGE_KEY = "fvm_orbit_language";
+const AUTO_CHECK_UPDATES_KEY = "fvm_orbit_auto_check_updates";
+const SKIPPED_UPDATE_VERSION_KEY = "fvm_orbit_skipped_update_version";
+
+const INITIAL_UPDATE_DOWNLOAD: UpdateDownloadState = {
+  status: "idle",
+  requestId: null,
+  assetName: null,
+  downloadedBytes: 0,
+  totalBytes: 0,
+  percent: null,
+  savedPath: null,
+  error: null,
+};
+
+let startupUpdateScheduled = false;
+
+function loadAutoCheckUpdates(): boolean {
+  try {
+    const raw = localStorage.getItem(AUTO_CHECK_UPDATES_KEY);
+    if (raw === "false" || raw === "0") return false;
+  } catch {
+    // ignore
+  }
+  return true;
+}
+
+function saveAutoCheckUpdates(enabled: boolean) {
+  try {
+    localStorage.setItem(AUTO_CHECK_UPDATES_KEY, enabled ? "true" : "false");
+  } catch {
+    // ignore
+  }
+}
+
+function loadSkippedUpdateVersion(): string | null {
+  try {
+    const raw = localStorage.getItem(SKIPPED_UPDATE_VERSION_KEY);
+    return raw && raw.trim() ? raw.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSkippedUpdateVersion(version: string | null) {
+  try {
+    if (version && version.trim()) {
+      localStorage.setItem(SKIPPED_UPDATE_VERSION_KEY, version.trim());
+    } else {
+      localStorage.removeItem(SKIPPED_UPDATE_VERSION_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export const FALLBACK_APP_VERSION: string =
+  typeof __APP_VERSION__ === "string" && __APP_VERSION__.trim() ? __APP_VERSION__ : "0.1.1";
+
+export function hasVisibleAppUpdate(
+  result: UpdateCheckResult | null,
+  skippedVersion: string | null
+): boolean {
+  return Boolean(result?.hasUpdate && result.latestVersion !== skippedVersion);
+}
 
 function loadLanguagePreference(): LanguagePreference {
   try {
@@ -295,6 +367,14 @@ interface FvmStoreState {
   proxySettings: ProxySettings;
   systemProxyInfo: SystemProxyInfo | null;
   detectingSystemProxy: boolean;
+  appVersionInfo: AppVersionInfo | null;
+  autoCheckUpdates: boolean;
+  skippedUpdateVersion: string | null;
+  checkingUpdates: boolean;
+  updateResult: UpdateCheckResult | null;
+  updateError: string | null;
+  updateCheckedAt: string | null;
+  updateDownload: UpdateDownloadState;
   toasts: ToastItem[];
 
   setActiveTab: (tab: TabId) => void;
@@ -356,6 +436,16 @@ interface FvmStoreState {
     updateCheck: boolean;
   }) => Promise<void>;
   fixPathInZshrc: () => Promise<void>;
+
+  setAutoCheckUpdates: (enabled: boolean) => void;
+  skipUpdateVersion: (version: string | null) => void;
+  checkForUpdates: (options?: {
+    manual?: boolean;
+    openModal?: boolean;
+  }) => Promise<UpdateCheckResult | null>;
+  downloadRecommendedUpdate: () => Promise<void>;
+  cancelUpdateDownload: () => Promise<void>;
+  openDownloadedInstaller: () => Promise<void>;
 }
 
 const initialLanguagePref = loadLanguagePreference();
@@ -410,6 +500,14 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
   proxySettings: loadProxySettings(),
   systemProxyInfo: null,
   detectingSystemProxy: false,
+  appVersionInfo: null,
+  autoCheckUpdates: loadAutoCheckUpdates(),
+  skippedUpdateVersion: loadSkippedUpdateVersion(),
+  checkingUpdates: false,
+  updateResult: null,
+  updateError: null,
+  updateCheckedAt: null,
+  updateDownload: INITIAL_UPDATE_DOWNLOAD,
   toasts: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -612,9 +710,10 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
       return;
     }
     try {
-      const [savedProxy, langState] = await Promise.all([
+      const [savedProxy, langState, versionInfo] = await Promise.all([
         fetchProxySettings(),
         fetchAppLanguage(),
+        fetchAppVersion(),
         get().refreshSystemProxy(),
       ]);
       cacheProxySettings(savedProxy);
@@ -626,11 +725,21 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
         resolvedLocale: langState.resolved,
         nativeSystemLocale:
           langState.preference === "system" ? langState.resolved : s.nativeSystemLocale,
+        appVersionInfo: versionInfo,
       }));
     } catch {
       // keep fallback settings
     }
     await Promise.all([get().refreshAll(), get().refreshReleases()]);
+
+    if (get().autoCheckUpdates && !startupUpdateScheduled) {
+      startupUpdateScheduled = true;
+      setTimeout(() => {
+        if (get().autoCheckUpdates) {
+          void get().checkForUpdates({ manual: false });
+        }
+      }, 2200);
+    }
   },
 
   refreshAll: async (silent = false) => {
@@ -1107,6 +1216,212 @@ export const useFvmStore = create<FvmStoreState>((set, get) => ({
     } catch (err) {
       get().pushToast(
         translate(get().resolvedLocale, "toast.zshrcFailed", { err: String(err) }),
+        "error"
+      );
+    }
+  },
+
+  setAutoCheckUpdates: (enabled) => {
+    saveAutoCheckUpdates(enabled);
+    set({ autoCheckUpdates: enabled });
+  },
+
+  skipUpdateVersion: (version) => {
+    saveSkippedUpdateVersion(version);
+    set({ skippedUpdateVersion: version });
+    if (version) {
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.updateSkipped", { version }),
+        "info"
+      );
+    }
+  },
+
+  checkForUpdates: async (options = {}) => {
+    const { manual = true, openModal = false } = options;
+    if (openModal) {
+      get().openSettings("updates");
+    }
+    if (!isTauriRuntime()) return null;
+    if (get().checkingUpdates) return get().updateResult;
+
+    set({
+      checkingUpdates: true,
+      ...(manual ? { updateError: null } : {}),
+    });
+
+    try {
+      const result = await checkForAppUpdates();
+      const prevVersion = get().updateResult?.latestVersion;
+      const versionChanged = prevVersion && prevVersion !== result.latestVersion;
+
+      set((s) => ({
+        updateResult: result,
+        updateCheckedAt: nowTime(),
+        checkingUpdates: false,
+        updateError: null,
+        updateDownload:
+          versionChanged && s.updateDownload.status !== "downloading"
+            ? INITIAL_UPDATE_DOWNLOAD
+            : s.updateDownload,
+      }));
+
+      const locale = get().resolvedLocale;
+      if (result.hasUpdate) {
+        const isSkipped = result.latestVersion === get().skippedUpdateVersion;
+        if (manual || !isSkipped) {
+          get().pushToast(
+            translate(locale, "toast.updateAvailable", { version: result.latestVersion }),
+            "info"
+          );
+        }
+      } else if (manual) {
+        get().pushToast(
+          translate(locale, "toast.updateUpToDate", { version: result.currentVersion }),
+          "success"
+        );
+      }
+
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({
+        checkingUpdates: false,
+        ...(manual ? { updateError: msg } : {}),
+      });
+      if (manual) {
+        get().pushToast(
+          translate(get().resolvedLocale, "toast.updateCheckFailed", { err: msg }),
+          "error"
+        );
+      }
+      return null;
+    }
+  },
+
+  downloadRecommendedUpdate: async () => {
+    if (!isTauriRuntime()) return;
+    const asset = get().updateResult?.recommendedAsset;
+    if (!asset) return;
+    if (get().updateDownload.status === "downloading") return;
+
+    const requestId = genId("upd");
+    set({
+      updateDownload: {
+        status: "downloading",
+        requestId,
+        assetName: asset.name,
+        downloadedBytes: 0,
+        totalBytes: asset.sizeBytes,
+        percent: asset.sizeBytes > 0 ? 0 : null,
+        savedPath: null,
+        error: null,
+      },
+    });
+
+    try {
+      const savedPath = await downloadUpdateAsset(
+        requestId,
+        asset.name,
+        asset.downloadUrl,
+        asset.sizeBytes,
+        (evt) => {
+          set((s) => {
+            if (s.updateDownload.requestId !== requestId) return s;
+            if (evt.kind === "started" || evt.kind === "progress") {
+              return {
+                updateDownload: {
+                  ...s.updateDownload,
+                  status: "downloading",
+                  downloadedBytes: evt.downloadedBytes,
+                  totalBytes: evt.totalBytes || s.updateDownload.totalBytes,
+                  percent: evt.percent,
+                },
+              };
+            }
+            if (evt.kind === "finished") {
+              return {
+                updateDownload: {
+                  ...s.updateDownload,
+                  status: "downloaded",
+                  downloadedBytes: evt.downloadedBytes,
+                  totalBytes: evt.totalBytes || s.updateDownload.totalBytes,
+                  percent: 100,
+                  savedPath: evt.savedPath,
+                  error: null,
+                },
+              };
+            }
+            if (evt.kind === "cancelled") {
+              return { updateDownload: INITIAL_UPDATE_DOWNLOAD };
+            }
+            if (evt.kind === "error") {
+              return {
+                updateDownload: {
+                  ...s.updateDownload,
+                  status: "error",
+                  error: evt.message ?? "Download failed",
+                },
+              };
+            }
+            return s;
+          });
+        }
+      );
+
+      if (savedPath) {
+        if (get().updateDownload.requestId !== requestId) return;
+        set((s) => ({
+          updateDownload: {
+            ...s.updateDownload,
+            status: "downloaded",
+            percent: 100,
+            savedPath,
+            error: null,
+          },
+        }));
+        get().pushToast(
+          translate(get().resolvedLocale, "toast.updateDownloaded", { name: asset.name }),
+          "success"
+        );
+      }
+    } catch (err) {
+      if (get().updateDownload.requestId !== requestId) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        updateDownload: {
+          ...s.updateDownload,
+          status: "error",
+          error: msg,
+        },
+      }));
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.updateDownloadFailed", { err: msg }),
+        "error"
+      );
+    }
+  },
+
+  cancelUpdateDownload: async () => {
+    const reqId = get().updateDownload.requestId;
+    if (!reqId) return;
+    try {
+      await cancelUpdateDownloadBridge(reqId);
+    } catch {
+      // ignore
+    }
+    set({ updateDownload: INITIAL_UPDATE_DOWNLOAD });
+    get().pushToast(translate(get().resolvedLocale, "toast.updateDownloadCancelled"), "warning");
+  },
+
+  openDownloadedInstaller: async () => {
+    const path = get().updateDownload.savedPath;
+    if (!path) return;
+    try {
+      await openDownloadedUpdate(path);
+    } catch (err) {
+      get().pushToast(
+        translate(get().resolvedLocale, "toast.updateOpenFailed", { err: String(err) }),
         "error"
       );
     }

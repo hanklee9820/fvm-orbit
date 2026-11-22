@@ -15,7 +15,12 @@ use crate::proxy::{
     test_proxy_connectivity as run_proxy_test, update_proxy_settings, ProxySettings,
     ProxyTestResult, SystemProxyInfo,
 };
-use crate::tray::{refresh_tray_language, update_tray_state};
+use crate::tray::{refresh_tray_language, update_tray_available_update, update_tray_state};
+use crate::updater::{
+    check_for_updates as run_update_check, download_update_asset as run_update_download,
+    get_app_version_info, open_downloaded_update as run_open_downloaded_update, AppVersionInfo,
+    UpdateCheckResult, UpdateDownloadEvent,
+};
 use std::sync::Arc;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, State};
@@ -143,4 +148,55 @@ pub fn set_app_language(app: AppHandle, language: String) -> Result<LanguageStat
     }
     refresh_tray_language(&app);
     Ok(state)
+}
+
+#[tauri::command]
+pub fn get_app_version(app: AppHandle) -> AppVersionInfo {
+    get_app_version_info(&app)
+}
+
+#[tauri::command]
+pub async fn check_for_updates(app: AppHandle) -> Result<UpdateCheckResult, String> {
+    let result = run_update_check(&app).await?;
+    update_tray_available_update(
+        &app,
+        if result.has_update {
+            Some(result.latest_version.as_str())
+        } else {
+            None
+        },
+    );
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn download_update_asset(
+    app: AppHandle,
+    request_id: String,
+    asset_name: String,
+    download_url: String,
+    total_bytes: u64,
+    on_event: Channel<UpdateDownloadEvent>,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    run_update_download(
+        &app,
+        request_id,
+        asset_name,
+        download_url,
+        total_bytes,
+        on_event,
+        state.cancel_registry.clone(),
+    )
+    .await
+}
+
+#[tauri::command]
+pub fn cancel_update_download(request_id: String, state: State<'_, AppState>) -> bool {
+    state.cancel_registry.cancel(&request_id)
+}
+
+#[tauri::command]
+pub fn open_downloaded_update(app: AppHandle, path: String) -> Result<(), String> {
+    run_open_downloaded_update(&app, path)
 }

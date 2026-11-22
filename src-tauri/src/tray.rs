@@ -13,6 +13,7 @@ struct CachedTrayState {
     global_sdk: Option<String>,
     cached_versions: Vec<String>,
     cache_size_label: String,
+    available_update: Option<String>,
 }
 
 impl Default for CachedTrayState {
@@ -21,6 +22,7 @@ impl Default for CachedTrayState {
             global_sdk: None,
             cached_versions: Vec::new(),
             cache_size_label: "0 B".to_string(),
+            available_update: None,
         }
     }
 }
@@ -40,6 +42,7 @@ struct TrayStrings {
     global_empty: &'static str,
     global_submenu: &'static str,
     refresh: &'static str,
+    check_updates: &'static str,
     settings: &'static str,
     quit: &'static str,
 }
@@ -56,6 +59,7 @@ impl TrayStrings {
                 global_empty: "暂无已缓存 SDK",
                 global_submenu: "快速切换全局 SDK",
                 refresh: "刷新本地 FVM 状态",
+                check_updates: "检查更新…",
                 settings: "设置…",
                 quit: "退出 FVM Orbit",
             },
@@ -68,6 +72,7 @@ impl TrayStrings {
                 global_empty: "No Cached SDKs",
                 global_submenu: "Switch Global SDK",
                 refresh: "Refresh FVM Status",
+                check_updates: "Check for Updates…",
                 settings: "Settings…",
                 quit: "Quit FVM Orbit",
             },
@@ -91,6 +96,7 @@ pub fn build_tray_menu(
     global_sdk: Option<&str>,
     cached_versions: &[String],
     cache_size_label: &str,
+    available_update: Option<&str>,
 ) -> tauri::Result<Menu<tauri::Wry>> {
     let locale = current_locale();
     let s = TrayStrings::for_locale(locale);
@@ -134,6 +140,18 @@ pub fn build_tray_menu(
     };
 
     let refresh_item = MenuItem::with_id(app, "tray_refresh", s.refresh, true, None::<&str>)?;
+    let check_updates_label = match (locale, available_update) {
+        (AppLocale::Zh, Some(ver)) => format!("发现新版本 v{ver}…"),
+        (AppLocale::En, Some(ver)) => format!("Update Available (v{ver})…"),
+        _ => s.check_updates.to_string(),
+    };
+    let check_updates_item = MenuItem::with_id(
+        app,
+        "tray_check_updates",
+        check_updates_label,
+        true,
+        None::<&str>,
+    )?;
     let settings_item = MenuItem::with_id(app, "tray_settings", s.settings, true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "tray_quit", s.quit, true, None::<&str>)?;
@@ -151,6 +169,7 @@ pub fn build_tray_menu(
             &nav_cleanup,
             &nav_doctor,
             &refresh_item,
+            &check_updates_item,
             &settings_item,
             &sep3,
             &quit_item,
@@ -165,7 +184,7 @@ pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
     let icon_bytes: &[u8] = include_bytes!("../icons/32x32.png");
 
     let icon = Image::from_bytes(icon_bytes)?;
-    let menu = build_tray_menu(app, None, &[], "0 B")?;
+    let menu = build_tray_menu(app, None, &[], "0 B", None)?;
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
@@ -187,6 +206,9 @@ pub fn init_tray(app: &AppHandle) -> tauri::Result<()> {
                 show_main_window(app, Some("doctor"));
             } else if id == "tray_refresh" {
                 let _ = app.emit("fvm://refresh", ());
+            } else if id == "tray_check_updates" {
+                show_main_window(app, None);
+                let _ = app.emit("fvm://check-updates", ());
             } else if id == "tray_settings" {
                 show_main_window(app, None);
                 let _ = app.emit("fvm://open-settings", ());
@@ -222,6 +244,7 @@ fn apply_tray_menu_and_tooltip(app: &AppHandle, state: &CachedTrayState) {
             state.global_sdk.as_deref(),
             &state.cached_versions,
             &state.cache_size_label,
+            state.available_update.as_deref(),
         ) {
             let _ = tray.set_menu(Some(menu));
         }
@@ -249,12 +272,22 @@ pub fn update_tray_state(
     cached_versions: &[String],
     cache_size_label: &str,
 ) {
-    let next = CachedTrayState {
-        global_sdk: global_sdk.map(String::from),
-        cached_versions: cached_versions.to_vec(),
-        cache_size_label: cache_size_label.to_string(),
+    let next = {
+        let mut guard = tray_state_store().lock();
+        guard.global_sdk = global_sdk.map(String::from);
+        guard.cached_versions = cached_versions.to_vec();
+        guard.cache_size_label = cache_size_label.to_string();
+        guard.clone()
     };
-    *tray_state_store().lock() = next.clone();
+    apply_tray_menu_and_tooltip(app, &next);
+}
+
+pub fn update_tray_available_update(app: &AppHandle, version: Option<&str>) {
+    let next = {
+        let mut guard = tray_state_store().lock();
+        guard.available_update = version.map(String::from);
+        guard.clone()
+    };
     apply_tray_menu_and_tooltip(app, &next);
 }
 

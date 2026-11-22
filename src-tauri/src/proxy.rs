@@ -476,6 +476,16 @@ fn clear_proxy_envs(cmd: &mut AsyncCommand) {
     for key in PROXY_ENV_KEYS {
         cmd.env_remove(key);
     }
+    // Also remove any mixed-case variants present in the inherited environment (e.g. HTTP_proxy / HTTPS_proxy)
+    for (key, _) in std::env::vars() {
+        let lower = key.to_ascii_lowercase();
+        if matches!(
+            lower.as_str(),
+            "http_proxy" | "https_proxy" | "all_proxy" | "ftp_proxy" | "no_proxy"
+        ) {
+            cmd.env_remove(&key);
+        }
+    }
 }
 
 fn set_git_proxy_override(cmd: &mut AsyncCommand, http_proxy: &str, https_proxy: &str) {
@@ -591,6 +601,91 @@ fn resolve_test_target_url(raw: Option<String>) -> (String, bool) {
     (trimmed.to_string(), true)
 }
 
+pub fn curl_binary() -> &'static str {
+    #[cfg(windows)]
+    {
+        "curl.exe"
+    }
+    #[cfg(not(windows))]
+    {
+        "/usr/bin/curl"
+    }
+}
+
+pub fn null_device() -> &'static str {
+    #[cfg(windows)]
+    {
+        "NUL"
+    }
+    #[cfg(not(windows))]
+    {
+        "/dev/null"
+    }
+}
+
+/// Applies the provided normalized `ProxySettings` to a `curl` command, clearing inherited
+/// proxy env vars and returning the masked proxy URL (if any) used for display.
+pub async fn configure_curl_proxy(
+    cmd: &mut AsyncCommand,
+    settings: &ProxySettings,
+) -> Option<String> {
+    let (proxy_arg, display_proxy, noproxy_list) = match settings.mode.as_str() {
+        "direct" => (None, None, None),
+        "custom" => {
+            let full = build_custom_proxy_url(settings, true);
+            let masked = build_custom_proxy_url(settings, false);
+            let bypass = settings.bypass.trim();
+            (
+                full,
+                masked,
+                if bypass.is_empty() {
+                    None
+                } else {
+                    Some(bypass.to_string())
+                },
+            )
+        }
+        _ => {
+            let sys = detect_system_proxy().await;
+            let mut bypass_parts: Vec<String> = sys
+                .exceptions
+                .into_iter()
+                .filter(|x| !x.is_empty() && x != "<local>")
+                .map(|x| x.strip_prefix('*').map(|s| s.to_string()).unwrap_or(x))
+                .collect();
+            for required in ["localhost", "127.0.0.1"] {
+                if !bypass_parts.iter().any(|x| x == required) {
+                    bypass_parts.push(required.to_string());
+                }
+            }
+            (
+                sys.effective_url.clone(),
+                sys.effective_url,
+                Some(bypass_parts.join(",")),
+            )
+        }
+    };
+
+    clear_proxy_envs(cmd);
+
+    if settings.mode == "direct" || proxy_arg.is_none() {
+        cmd.args(["--noproxy", "*"]);
+    } else if let Some(ref p) = proxy_arg {
+        cmd.args(["--proxy", p]);
+        if let Some(ref bypass) = noproxy_list {
+            cmd.args(["--noproxy", bypass]);
+        }
+    }
+
+    display_proxy
+}
+
+/// Applies the currently active FVM Orbit proxy settings to a `curl` command.
+pub async fn apply_active_proxy_to_curl(cmd: &mut AsyncCommand) -> Option<String> {
+    let settings = get_current_proxy_settings();
+    configure_curl_proxy(cmd, &settings).await
+}
+
 pub async fn test_proxy_connectivity(
     raw_settings: ProxySettings,
     target_url: Option<String>,
@@ -598,26 +693,8 @@ pub async fn test_proxy_connectivity(
     let settings = normalize_settings(raw_settings)?;
     let (url, use_head) = resolve_test_target_url(target_url);
 
-    let (proxy_arg, display_proxy) = match settings.mode.as_str() {
-        "direct" => (None, None),
-        "custom" => {
-            let full = build_custom_proxy_url(&settings, true);
-            let masked = build_custom_proxy_url(&settings, false);
-            (full, masked)
-        }
-        _ => {
-            let sys = detect_system_proxy().await;
-            (sys.effective_url.clone(), sys.effective_url)
-        }
-    };
-
     let started = Instant::now();
-    #[cfg(windows)]
-    let (curl_bin, null_target) = ("curl.exe", "NUL");
-    #[cfg(not(windows))]
-    let (curl_bin, null_target) = ("/usr/bin/curl", "/dev/null");
-
-    let mut cmd = AsyncCommand::new(curl_bin);
+    let mut cmd = AsyncCommand::new(curl_binary());
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000);
     if use_head {
@@ -627,7 +704,7 @@ pub async fn test_proxy_connectivity(
         "-sS",
         "-L",
         "-o",
-        null_target,
+        null_device(),
         "--connect-timeout",
         "6",
         "--max-time",
@@ -636,16 +713,7 @@ pub async fn test_proxy_connectivity(
         "%{http_code}",
     ]);
 
-    clear_proxy_envs(&mut cmd);
-
-    if settings.mode == "direct" || proxy_arg.is_none() {
-        cmd.args(["--noproxy", "*"]);
-    } else if let Some(ref p) = proxy_arg {
-        cmd.args(["--proxy", p]);
-        if settings.mode == "custom" && !settings.bypass.trim().is_empty() {
-            cmd.args(["--noproxy", settings.bypass.trim()]);
-        }
-    }
+    let display_proxy = configure_curl_proxy(&mut cmd, &settings).await;
 
     cmd.arg(&url);
 

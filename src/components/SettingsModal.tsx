@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  ArrowUpCircle,
   Check,
   Globe,
   Languages,
@@ -12,10 +13,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/useI18n";
 import { testProxyConnectivity } from "../services/fvmBridge";
 import {
+  FALLBACK_APP_VERSION,
   getProxyDisplaySummary,
+  hasVisibleAppUpdate,
   resolveEffectiveAppIcon,
   useFvmStore,
 } from "../store/useFvmStore";
+import { UpdatesPanel } from "./UpdatesPanel";
 import type {
   AppIconStyle,
   LanguagePreference,
@@ -66,6 +70,9 @@ export function SettingsModal() {
     setAppIconStyle,
     snapshot,
     releases,
+    appVersionInfo,
+    updateResult,
+    skippedUpdateVersion,
   } = useFvmStore();
 
   const [draft, setDraft] = useState<ProxySettings>(proxySettings);
@@ -192,6 +199,13 @@ export function SettingsModal() {
         ? t("common.langBadgeZh")
         : t("common.langBadgeEn");
 
+  const hasUpdateBadge = hasVisibleAppUpdate(updateResult, skippedUpdateVersion);
+  const currentVersion =
+    appVersionInfo?.version ?? updateResult?.currentVersion ?? FALLBACK_APP_VERSION;
+  const updatesNavBadge = hasUpdateBadge
+    ? t("settings.updatesBadgeNew")
+    : `v${currentVersion}`;
+
   const resolvedLangDisplay =
     locale === "zh" ? t("common.langNameZh") : t("common.langNameEn");
 
@@ -284,7 +298,9 @@ export function SettingsModal() {
       ? t("settings.footer.savedProxy")
       : settingsTab === "appearance"
         ? t("settings.footer.savedAppearance")
-        : t("settings.footer.savedLanguage");
+        : settingsTab === "language"
+          ? t("settings.footer.savedLanguage")
+          : t("settings.footer.savedUpdates");
 
   return (
     <div
@@ -326,7 +342,7 @@ export function SettingsModal() {
         {/* Two-Column Body */}
         <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
           {/* Left Category Navigation */}
-          <nav className="sm:w-44 shrink-0 bg-[var(--sidebar)]/60 border-b sm:border-b-0 sm:border-r border-[var(--border)] p-2.5 flex sm:flex-col gap-1.5 select-none">
+          <nav className="sm:w-48 shrink-0 bg-[var(--sidebar)]/60 border-b sm:border-b-0 sm:border-r border-[var(--border)] p-2.5 flex flex-wrap sm:flex-nowrap sm:flex-col gap-1.5 select-none">
             <button
               type="button"
               onClick={() => setSettingsTab("proxy")}
@@ -414,6 +430,40 @@ export function SettingsModal() {
                 }`}
               >
                 {langNavBadge}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSettingsTab("updates")}
+              className={`flex-1 sm:flex-none text-left px-3 py-2.5 rounded-xl flex items-center justify-between gap-2 text-xs font-medium transition cursor-pointer ${
+                settingsTab === "updates"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                  : "hover:bg-[var(--card)] text-[var(--foreground)]"
+              }`}
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                <ArrowUpCircle
+                  className={`w-4 h-4 shrink-0 ${
+                    settingsTab === "updates"
+                      ? "text-[var(--primary-foreground)]"
+                      : hasUpdateBadge
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--muted-foreground)]"
+                  }`}
+                />
+                <span className="truncate">{t("settings.tabUpdates")}</span>
+              </span>
+              <span
+                className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${
+                  settingsTab === "updates"
+                    ? "bg-white/20 text-[var(--primary-foreground)]"
+                    : hasUpdateBadge
+                      ? "bg-[var(--primary)]/15 text-[var(--primary)] font-semibold"
+                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] font-mono"
+                }`}
+              >
+                {updatesNavBadge}
               </span>
             </button>
           </nav>
@@ -832,7 +882,7 @@ export function SettingsModal() {
                   })}
                 </div>
               </div>
-            ) : (
+            ) : settingsTab === "language" ? (
               /* TAB 3: INTERFACE LANGUAGE */
               <div className="space-y-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -894,6 +944,9 @@ export function SettingsModal() {
                   })}
                 </div>
               </div>
+            ) : (
+              /* TAB 4: SOFTWARE UPDATES & ABOUT */
+              <UpdatesPanel />
             )}
           </div>
         </div>

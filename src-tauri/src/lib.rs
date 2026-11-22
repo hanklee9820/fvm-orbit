@@ -5,6 +5,7 @@ mod fvm;
 mod i18n;
 mod proxy;
 mod tray;
+mod updater;
 
 use commands::AppState;
 use fvm::runner::CancelRegistry;
@@ -58,6 +59,11 @@ pub fn run() {
             commands::test_proxy_connectivity,
             commands::get_app_language,
             commands::set_app_language,
+            commands::get_app_version,
+            commands::check_for_updates,
+            commands::download_update_asset,
+            commands::cancel_update_download,
+            commands::open_downloaded_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FVM Orbit");

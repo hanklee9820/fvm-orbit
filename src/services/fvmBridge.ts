@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir, openUrl } from "@tauri-apps/plugin-opener";
 import type {
+  AppVersionInfo,
   CliStreamEvent,
   DoctorOutput,
   LanguagePreference,
@@ -13,6 +14,8 @@ import type {
   SpawnStreamEvent,
   SpawnTaskRequest,
   SystemProxyInfo,
+  UpdateCheckResult,
+  UpdateDownloadEvent,
   WorkspaceSnapshot,
 } from "../types/fvm";
 
@@ -117,6 +120,40 @@ export async function saveAppLanguage(language: LanguagePreference): Promise<Lan
   return invoke<LanguageState>("set_app_language", { language });
 }
 
+export async function fetchAppVersion(): Promise<AppVersionInfo> {
+  return invoke<AppVersionInfo>("get_app_version");
+}
+
+export async function checkForAppUpdates(): Promise<UpdateCheckResult> {
+  return invoke<UpdateCheckResult>("check_for_updates");
+}
+
+export async function downloadUpdateAsset(
+  requestId: string,
+  assetName: string,
+  downloadUrl: string,
+  totalBytes: number,
+  onEvent: (evt: UpdateDownloadEvent) => void
+): Promise<string | null> {
+  const channel = new Channel<UpdateDownloadEvent>();
+  channel.onmessage = onEvent;
+  return invoke<string | null>("download_update_asset", {
+    requestId,
+    assetName,
+    downloadUrl,
+    totalBytes,
+    onEvent: channel,
+  });
+}
+
+export async function cancelUpdateDownload(requestId: string): Promise<boolean> {
+  return invoke<boolean>("cancel_update_download", { requestId });
+}
+
+export async function openDownloadedUpdate(path: string): Promise<void> {
+  return invoke<void>("open_downloaded_update", { path });
+}
+
 export async function pickDirectoryDialog(title: string): Promise<string | null> {
   if (!isTauriRuntime()) return null;
   const selected = await openDialog({
@@ -147,6 +184,7 @@ export async function subscribeNativeEvents(handlers: {
   onRefresh: () => void;
   onTraySetGlobal: (version: string) => void;
   onOpenSettings: () => void;
+  onCheckUpdates: () => void;
 }): Promise<UnlistenFn[]> {
   if (!isTauriRuntime()) return [];
   return Promise.all([
@@ -155,5 +193,6 @@ export async function subscribeNativeEvents(handlers: {
     listen("fvm://refresh", () => handlers.onRefresh()),
     listen<string>("fvm://tray-set-global", (e) => handlers.onTraySetGlobal(e.payload)),
     listen("fvm://open-settings", () => handlers.onOpenSettings()),
+    listen("fvm://check-updates", () => handlers.onCheckUpdates()),
   ]);
 }

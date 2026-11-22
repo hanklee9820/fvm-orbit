@@ -30,6 +30,7 @@ export function App() {
     setMenubarOpen,
     openSettings,
     closeSettings,
+    checkForUpdates,
   } = useFvmStore();
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export function App() {
       onRefresh: () => void refreshAll(),
       onTraySetGlobal: (ver) => void setGlobalSdk(ver),
       onOpenSettings: () => openSettings(),
+      onCheckUpdates: () => void checkForUpdates({ manual: true, openModal: true }),
     }).then((fns) => {
       cleanups = fns;
     });
@@ -92,6 +94,7 @@ export function App() {
     setMenubarOpen,
     openSettings,
     closeSettings,
+    checkForUpdates,
   ]);
 
   return (

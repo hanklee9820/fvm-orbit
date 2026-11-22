@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowUpCircle,
   Box,
   Check,
   ChevronRight,
@@ -10,7 +11,12 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../i18n/useI18n";
-import { formatBytes, useFvmStore } from "../store/useFvmStore";
+import {
+  FALLBACK_APP_VERSION,
+  formatBytes,
+  hasVisibleAppUpdate,
+  useFvmStore,
+} from "../store/useFvmStore";
 import type { TabId } from "../types/fvm";
 
 interface HoveredTip {
@@ -23,8 +29,18 @@ interface HoveredTip {
 
 export function Sidebar() {
   const { t } = useI18n();
-  const { activeTab, setActiveTab, snapshot, setGlobalSdk, unlinkGlobalSdk, pushToast } =
-    useFvmStore();
+  const {
+    activeTab,
+    setActiveTab,
+    snapshot,
+    setGlobalSdk,
+    unlinkGlobalSdk,
+    pushToast,
+    openSettings,
+    appVersionInfo,
+    updateResult,
+    skippedUpdateVersion,
+  } = useFvmStore();
   const [hoveredTip, setHoveredTip] = useState<HoveredTip | null>(null);
   const [globalPickerOpen, setGlobalPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -119,6 +135,9 @@ export function Sidebar() {
   ];
 
   const gbBarPct = Math.min(100, (totalBytes / (15 * 1024 * 1024 * 1024)) * 100);
+  const hasUpdate = hasVisibleAppUpdate(updateResult, skippedUpdateVersion);
+  const currentAppVersion =
+    appVersionInfo?.version ?? updateResult?.currentVersion ?? FALLBACK_APP_VERSION;
 
   return (
     <aside className="w-56 shrink-0 bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col justify-between p-3 gap-4 select-none">
@@ -334,9 +353,34 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="px-1 text-xs text-[var(--muted-foreground)] flex items-center justify-between">
-          <span>{t("sidebar.poweredBy")}</span>
-          <code className="font-mono text-[var(--code-foreground)]">fvm api *</code>
+        <div className="px-1 text-xs text-[var(--muted-foreground)] flex items-center justify-between gap-2">
+          <span className="truncate">{t("sidebar.poweredBy")}</span>
+          <button
+            type="button"
+            onClick={() => openSettings("updates")}
+            title={
+              hasUpdate && updateResult
+                ? t("sidebar.versionUpdateTooltip", {
+                    current: currentAppVersion,
+                    latest: updateResult.latestVersion,
+                  })
+                : t("sidebar.versionCheckTooltip", { version: currentAppVersion })
+            }
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-mono transition cursor-pointer shrink-0 ${
+              hasUpdate && updateResult
+                ? "bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/25 font-semibold"
+                : "text-[var(--code-foreground)] hover:bg-[var(--card)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {hasUpdate && updateResult ? (
+              <>
+                <ArrowUpCircle className="w-3 h-3 shrink-0" />
+                <span>v{updateResult.latestVersion}</span>
+              </>
+            ) : (
+              <span>v{currentAppVersion}</span>
+            )}
+          </button>
         </div>
       </div>
     </aside>

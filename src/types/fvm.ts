@@ -3,7 +3,7 @@ export type ThemeMode = "system" | "dark" | "light";
 export type AppIconStyle = "dark" | "light" | "auto";
 export type LanguagePreference = "system" | "zh" | "en";
 export type Locale = "zh" | "en";
-export type SettingsTabId = "proxy" | "appearance" | "language";
+export type SettingsTabId = "proxy" | "appearance" | "language" | "updates";
 export type ProxyMode = "direct" | "system" | "custom";
 export type ProxyProtocol = "http" | "https" | "socks5";
 
@@ -210,4 +210,55 @@ export interface ToastItem {
   id: string;
   message: string;
   tone: "info" | "success" | "warning" | "error";
+}
+
+export interface AppVersionInfo {
+  version: string;
+  os: string;
+  arch: string;
+  repoUrl: string;
+  releasesUrl: string;
+}
+
+export interface ReleaseAssetInfo {
+  name: string;
+  downloadUrl: string;
+  sizeBytes: number;
+}
+
+export interface UpdateCheckResult {
+  currentVersion: string;
+  latestVersion: string;
+  tagName: string;
+  hasUpdate: boolean;
+  releaseName: string;
+  releaseNotes: string | null;
+  publishedAt: string | null;
+  releaseUrl: string;
+  prerelease: boolean;
+  recommendedAsset: ReleaseAssetInfo | null;
+  assets: ReleaseAssetInfo[];
+  checkedVia: "github-api" | "github-redirect" | "no-release" | string;
+  proxyUsed: string | null;
+}
+
+export interface UpdateDownloadEvent {
+  requestId: string;
+  kind: "started" | "progress" | "finished" | "cancelled" | "error";
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number | null;
+  savedPath: string | null;
+  message: string | null;
+}
+
+export interface UpdateDownloadState {
+  status: "idle" | "downloading" | "downloaded" | "error";
+  requestId: string | null;
+  assetName: string | null;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number | null;
+  savedPath: string | null;
+  error: string | null;
 }

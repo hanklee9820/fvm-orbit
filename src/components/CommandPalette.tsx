@@ -24,6 +24,7 @@ export function CommandPalette() {
     refreshDoctor,
     setAppIconStyle,
     openSettings,
+    checkForUpdates,
     proxySettings,
     updateProxySettings,
   } = useFvmStore();
@@ -104,6 +105,18 @@ export function CommandPalette() {
         title: t("cmdk.openLangTitle"),
         sub: t("cmdk.openLangSub"),
         action: () => openSettings("language"),
+      },
+      {
+        id: "check-updates",
+        title: t("cmdk.checkUpdatesTitle"),
+        sub: t("cmdk.checkUpdatesSub"),
+        action: () => void checkForUpdates({ manual: true, openModal: true }),
+      },
+      {
+        id: "open-settings-updates",
+        title: t("cmdk.openUpdatesTitle"),
+        sub: t("cmdk.openUpdatesSub"),
+        action: () => openSettings("updates"),
       },
       {
         id: "proxy-direct",
@@ -197,6 +210,7 @@ export function CommandPalette() {
     setAppIconStyle,
     setLanguage,
     openSettings,
+    checkForUpdates,
     proxySettings,
     updateProxySettings,
   ]);
