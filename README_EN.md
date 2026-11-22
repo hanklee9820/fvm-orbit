@@ -138,6 +138,13 @@ Pre-built binaries for **macOS** and **Windows** are available on **[GitHub Rele
 | **Windows** | 64-bit (`x64`) | `-setup.exe` (NSIS) / `.msi` (WiX) |
 | **Windows** | ARM64 (`aarch64`) | `-setup.exe` (NSIS) |
 
+> **macOS "damaged and can't be opened / Move to Trash" Notice**:
+> Because pre-built releases are not yet Apple Developer notarized, macOS Gatekeeper may quarantine the downloaded app. After moving `FVM Orbit.app` into `/Applications`, run the following command in Terminal to clear the quarantine attribute before launching:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/FVM\ Orbit.app
+> ```
+
 ---
 
 ## Prerequisites

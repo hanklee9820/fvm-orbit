@@ -506,6 +506,19 @@
       align-items: center;
       gap: 10px;
     }
+    .release-tip {
+      flex: 1 0 100%;
+      padding-top: 16px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+    }
+    .release-tip p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .release-tip .code-box {
+      margin-top: 10px;
+    }
     .platform-bar {
       display: flex;
       flex-wrap: wrap;
@@ -917,6 +930,13 @@
               前往 GitHub Releases 下载
             </a>
           </div>
+          <div class="release-tip">
+            <p data-i18n-html="quickstart.macQuarantineTip"><strong>macOS 提示「已损坏 / 移到废纸篓」？</strong>因尚未进行 Apple 开发者公证，将应用拖入「应用程序」后在终端执行以下命令清除隔离属性即可打开：</p>
+            <div class="code-box">
+              <button type="button" class="copy-btn" data-copy="xattr -dr com.apple.quarantine /Applications/FVM\ Orbit.app">复制</button>
+              <pre style="margin:0;">xattr -dr com.apple.quarantine /Applications/FVM\ Orbit.app</pre>
+            </div>
+          </div>
         </div>
 
         <div class="platform-bar">
@@ -1180,6 +1200,7 @@ pnpm release patch
             releaseTitle: "下载预编译安装包（GitHub Releases）",
             releaseDesc: "普通用户无需配置 Rust 或 C++ 编译环境，直接获取四端预编译安装包；应用内也支持通过「检查更新」自动匹配当前系统与架构的安装包。",
             releaseCta: "前往 GitHub Releases 下载",
+            macQuarantineTip: "<strong>macOS 提示「已损坏 / 移到废纸篓」？</strong>因尚未进行 Apple 开发者公证，将应用拖入「应用程序」后在终端执行以下命令清除隔离属性即可打开：",
             sourceHeading: "从源码本地运行与打包（选择目标操作系统）",
             mac: {
               s1Title: "1. 安装 btwld/fvm CLI",
@@ -1343,6 +1364,7 @@ pnpm release patch
             releaseTitle: "Download Pre-Built Installers (GitHub Releases)",
             releaseDesc: "Skip setting up Rust or C++ toolchains — download ready-to-install packages for all 4 targets directly, and use the built-in Check for Updates panel to auto-match future releases for your OS and architecture.",
             releaseCta: "Download from GitHub Releases",
+            macQuarantineTip: '<strong>macOS "damaged / Move to Trash" warning?</strong> Pre-built releases are not yet Apple notarized. After dragging the app to <code>/Applications</code>, run this command in Terminal to clear quarantine:',
             sourceHeading: "Run & Package from Source (Select Target OS)",
             mac: {
               s1Title: "1. Install btwld/fvm CLI",

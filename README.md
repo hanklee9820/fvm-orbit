@@ -138,6 +138,13 @@ FVM Orbit 内置从前端界面到原生系统外壳、再到 Rust 后端的 **�
 | **Windows** | 64-bit (`x64`) | `-setup.exe` (NSIS) / `.msi` (WiX) |
 | **Windows** | ARM64 (`aarch64`) | `-setup.exe` (NSIS) |
 
+> **macOS 首次打开提示「已损坏，无法打开，应移到废纸篓」说明**：
+> 由于预编译包尚未进行 Apple 开发者公证，将 `FVM Orbit.app` 拖入「应用程序」后首次启动如被 macOS Gatekeeper 拦截，请在终端执行以下命令清除隔离属性后再打开：
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/FVM\ Orbit.app
+> ```
+
 ---
 
 ## 前置依赖
