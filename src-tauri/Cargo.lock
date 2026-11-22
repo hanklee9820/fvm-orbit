@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "fvm-orbit"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "dirs 6.0.0",
  "notify",
